@@ -1,19 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>GPX Tracker Test</title>
+  <title>KML Tracker Test</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
-  <h1>GPS Tracker</h1>
+  <h1>GPS KML Tracker</h1>
   <button onclick="startTracking()">Start Tracking</button>
-  <button onclick="stopTracking()">Stop & Download GPX</button>
+  <button onclick="stopTracking()">Stop & Download KML</button>
   <p id="status">Status: Not started</p>
   <ul id="log"></ul>
 
   <script>
     let watchId;
-    let trackPoints = [];
+    let coordinates = [];
 
     function startTracking() {
       if (!navigator.geolocation) {
@@ -27,12 +27,12 @@
         (position) => {
           const lat = position.coords.latitude;
           const lon = position.coords.longitude;
-          const time = new Date().toISOString();
+          const coordStr = `${lon},${lat},0`; // KML format: lon,lat,alt
 
-          trackPoints.push({ lat, lon, time });
+          coordinates.push(coordStr);
 
           const logItem = document.createElement("li");
-          logItem.textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)} @ ${time}`;
+          logItem.textContent = `Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}`;
           document.getElementById("log").appendChild(logItem);
         },
         (err) => {
@@ -50,27 +50,28 @@
       if (watchId) {
         navigator.geolocation.clearWatch(watchId);
         document.getElementById("status").textContent = "Status: Stopped";
-        generateGPX();
+        generateKML();
       }
     }
 
-    function generateGPX() {
-      let gpx = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="GPX Tracker" xmlns="http://www.topografix.com/GPX/1/1">
-<trk><name>GPS Track</name><trkseg>
-`;
+    function generateKML() {
+      let kml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+      kml += `<kml xmlns="http://www.opengis.net/kml/2.2">\n`;
+      kml += `<Document>\n`;
+      kml += `<Placemark>\n`;
+      kml += `<name>GPS Path</name>\n`;
+      kml += `<Style><LineStyle><color>ff0000ff</color><width>4</width></LineStyle></Style>\n`;
+      kml += `<LineString>\n<coordinates>\n`;
 
-      trackPoints.forEach(pt => {
-        gpx += `<trkpt lat="${pt.lat}" lon="${pt.lon}"><time>${pt.time}</time></trkpt>\n`;
-      });
+      kml += coordinates.join("\n") + "\n";
 
-      gpx += `</trkseg></trk></gpx>`;
+      kml += `</coordinates>\n</LineString>\n</Placemark>\n</Document>\n</kml>`;
 
-      const blob = new Blob([gpx], { type: "application/gpx+xml" });
+      const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
+      const a = document.createElement('a');
       a.href = url;
-      a.download = "track.gpx";
+      a.download = 'track.kml';
       a.click();
     }
   </script>
