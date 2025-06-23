@@ -1,28 +1,115 @@
-watchId = navigator.geolocation.watchPosition(
-  (position) => {
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
-    const acc = position.coords.accuracy; // in meters
+<!DOCTYPE html>
+<html>
+<head>
+  <title>KML GPS Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+    }
+    button {
+      padding: 10px;
+      margin: 5px;
+      font-size: 16px;
+    }
+    #log {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📍 KML GPS Tracker</h1>
+  <button onclick="startTracking()">Start Tracking</button>
+  <button onclick="stopTracking()">Stop & Download KML</button>
+  <p id="status">Status: Not started</p>
+  <p><strong>Note:</strong> Only accurate GPS points (≤25m) are saved.</p>
+  <div id="log"></div>
 
-    // Optional filter: only include accurate points
-    if (acc > 25) {
-      console.log(`Skipped inaccurate point: ${acc}m`);
-      return;
+  <script>
+    let watchId;
+    let coordinates = [];
+
+    function startTracking() {
+      if (!navigator.geolocation) {
+        alert("Geolocation is not supported by your browser.");
+        return;
+      }
+
+      document.getElementById("status").textContent = "Status: Tracking...";
+      coordinates = [];
+      document.getElementById("log").innerHTML = "";
+
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lon = position.coords.longitude;
+          const acc = position.coords.accuracy;
+          const time = new Date().toISOString();
+
+          if (acc > 25) {
+            log(`❌ Skipped (accuracy ${Math.round(acc)}m)`);
+            return;
+          }
+
+          const coordStr = `${lon},${lat},0`; // KML format
+          coordinates.push(coordStr);
+
+          log(`✅ ${lat.toFixed(5)}, ${lon.toFixed(5)} (±${Math.round(acc)}m) @ ${time}`);
+        },
+        (err) => {
+          alert("Error getting position: " + err.message);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
     }
 
-    const coordStr = `${lon},${lat},0`; // KML wants lon,lat,alt
-    coordinates.push(coordStr);
+    function stopTracking() {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        document.getElementById("status").textContent = "Status: Stopped";
+        generateKML();
+      }
+    }
 
-    const logItem = document.createElement("li");
-    logItem.textContent = `Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)} (±${Math.round(acc)}m)`;
-    document.getElementById("log").appendChild(logItem);
-  },
-  (err) => {
-    alert("Error getting position: " + err.message);
-  },
-  {
-    enableHighAccuracy: true,
-    timeout: 5000,       // shorter timeout
-    maximumAge: 0        // don't use old locations
-  }
-);
+    function generateKML() {
+      if (coordinates.length === 0) {
+        alert("No accurate points were collected.");
+        return;
+      }
+
+      let kml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+      kml += `<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n<Placemark>\n`;
+      kml += `<name>GPS Track</name>\n`;
+      kml += `<Style><LineStyle><color>ff0000ff</color><width>4</width></LineStyle></Style>\n`;
+      kml += `<LineString><coordinates>\n`;
+      kml += coordinates.join("\n") + "\n";
+      kml += `</coordinates></LineString>\n`;
+      kml += `</Placemark>\n</Document>\n</kml>`;
+
+      const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'track.kml';
+      a.click();
+    }
+
+    function log(msg) {
+      const logDiv = document.getElementById("log");
+      const p = document.createElement("p");
+      p.textContent = msg;
+      logDiv.appendChild(p);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>
