@@ -1,79 +1,28 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>KML Tracker Test</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body>
-  <h1>GPS KML Tracker</h1>
-  <button onclick="startTracking()">Start Tracking</button>
-  <button onclick="stopTracking()">Stop & Download KML</button>
-  <p id="status">Status: Not started</p>
-  <ul id="log"></ul>
+watchId = navigator.geolocation.watchPosition(
+  (position) => {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+    const acc = position.coords.accuracy; // in meters
 
-  <script>
-    let watchId;
-    let coordinates = [];
-
-    function startTracking() {
-      if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser.");
-        return;
-      }
-
-      document.getElementById("status").textContent = "Status: Tracking...";
-
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-          const coordStr = `${lon},${lat},0`; // KML format: lon,lat,alt
-
-          coordinates.push(coordStr);
-
-          const logItem = document.createElement("li");
-          logItem.textContent = `Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}`;
-          document.getElementById("log").appendChild(logItem);
-        },
-        (err) => {
-          alert("Error getting position: " + err.message);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        }
-      );
+    // Optional filter: only include accurate points
+    if (acc > 25) {
+      console.log(`Skipped inaccurate point: ${acc}m`);
+      return;
     }
 
-    function stopTracking() {
-      if (watchId) {
-        navigator.geolocation.clearWatch(watchId);
-        document.getElementById("status").textContent = "Status: Stopped";
-        generateKML();
-      }
-    }
+    const coordStr = `${lon},${lat},0`; // KML wants lon,lat,alt
+    coordinates.push(coordStr);
 
-    function generateKML() {
-      let kml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-      kml += `<kml xmlns="http://www.opengis.net/kml/2.2">\n`;
-      kml += `<Document>\n`;
-      kml += `<Placemark>\n`;
-      kml += `<name>GPS Path</name>\n`;
-      kml += `<Style><LineStyle><color>ff0000ff</color><width>4</width></LineStyle></Style>\n`;
-      kml += `<LineString>\n<coordinates>\n`;
-
-      kml += coordinates.join("\n") + "\n";
-
-      kml += `</coordinates>\n</LineString>\n</Placemark>\n</Document>\n</kml>`;
-
-      const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'track.kml';
-      a.click();
-    }
-  </script>
-</body>
-</html>
+    const logItem = document.createElement("li");
+    logItem.textContent = `Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)} (±${Math.round(acc)}m)`;
+    document.getElementById("log").appendChild(logItem);
+  },
+  (err) => {
+    alert("Error getting position: " + err.message);
+  },
+  {
+    enableHighAccuracy: true,
+    timeout: 5000,       // shorter timeout
+    maximumAge: 0        // don't use old locations
+  }
+);
