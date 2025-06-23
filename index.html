@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>KML GPS Tracker</title>
+  <title>KML GPS Tracker (Advanced)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
@@ -9,30 +9,35 @@
       padding: 20px;
     }
     button {
-      padding: 10px;
+      padding: 10px 20px;
       margin: 5px;
       font-size: 16px;
     }
     #log {
-      max-height: 200px;
+      max-height: 250px;
       overflow-y: auto;
       border: 1px solid #ccc;
       padding: 10px;
+      margin-top: 10px;
+      background: #f9f9f9;
+      font-size: 14px;
+    }
+    #status {
       margin-top: 10px;
     }
   </style>
 </head>
 <body>
-  <h1>📍 KML GPS Tracker</h1>
+  <h1>📍 KML GPS Tracker (Advanced)</h1>
   <button onclick="startTracking()">Start Tracking</button>
   <button onclick="stopTracking()">Stop & Download KML</button>
   <p id="status">Status: Not started</p>
-  <p><strong>Note:</strong> Only accurate GPS points (≤25m) are saved.</p>
   <div id="log"></div>
 
   <script>
     let watchId;
     let coordinates = [];
+    let lastGoodPoint = null;
 
     function startTracking() {
       if (!navigator.geolocation) {
@@ -40,26 +45,38 @@
         return;
       }
 
-      document.getElementById("status").textContent = "Status: Tracking...";
       coordinates = [];
+      lastGoodPoint = null;
       document.getElementById("log").innerHTML = "";
+      document.getElementById("status").textContent = "Status: Tracking...";
 
       watchId = navigator.geolocation.watchPosition(
         (position) => {
           const lat = position.coords.latitude;
           const lon = position.coords.longitude;
+          const alt = position.coords.altitude ?? 0;
           const acc = position.coords.accuracy;
+          const speed = position.coords.speed ?? 0;
           const time = new Date().toISOString();
 
           if (acc > 25) {
-            log(`❌ Skipped (accuracy ${Math.round(acc)}m)`);
+            log(`⚠️ Ignored: Accuracy too low (${Math.round(acc)}m)`);
             return;
           }
 
-          const coordStr = `${lon},${lat},0`; // KML format
-          coordinates.push(coordStr);
+          const point = { lat, lon, alt, time };
 
-          log(`✅ ${lat.toFixed(5)}, ${lon.toFixed(5)} (±${Math.round(acc)}m) @ ${time}`);
+          if (lastGoodPoint && !hasMovedEnough(lastGoodPoint, point)) {
+            log(`🔸 Skipped: No significant movement`);
+            return;
+          }
+
+          lastGoodPoint = point;
+
+          const kmlCoord = `${lon},${lat},${alt}`;
+          coordinates.push(kmlCoord);
+
+          log(`✅ Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}, Alt: ${Math.round(alt)}m, Speed: ${Math.round(speed * 3.6)} km/h (±${Math.round(acc)}m)`);
         },
         (err) => {
           alert("Error getting position: " + err.message);
@@ -82,7 +99,7 @@
 
     function generateKML() {
       if (coordinates.length === 0) {
-        alert("No accurate points were collected.");
+        alert("No usable GPS points were collected.");
         return;
       }
 
@@ -90,7 +107,7 @@
       kml += `<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n<Placemark>\n`;
       kml += `<name>GPS Track</name>\n`;
       kml += `<Style><LineStyle><color>ff0000ff</color><width>4</width></LineStyle></Style>\n`;
-      kml += `<LineString><coordinates>\n`;
+      kml += `<LineString><tessellate>1</tessellate><coordinates>\n`;
       kml += coordinates.join("\n") + "\n";
       kml += `</coordinates></LineString>\n`;
       kml += `</Placemark>\n</Document>\n</kml>`;
@@ -109,6 +126,12 @@
       p.textContent = msg;
       logDiv.appendChild(p);
       logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function hasMovedEnough(last, current) {
+      const deltaLat = Math.abs(last.lat - current.lat);
+      const deltaLon = Math.abs(last.lon - current.lon);
+      return deltaLat > 0.00002 || deltaLon > 0.00002; // ~2m movement
     }
   </script>
 </body>
