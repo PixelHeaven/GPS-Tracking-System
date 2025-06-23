@@ -40,6 +40,7 @@
             font-size: 28px;
             font-weight: 700;
             margin-bottom: 10px;
+            cursor: pointer;
         }
         
         .header .subtitle {
@@ -499,8 +500,17 @@
             font-weight: 600;
             color: #333;
         }
+
+        /* Debug mode styles */
+        .debug-mode .coordinates-display {
+            border-color: #ff0000;
+        }
         
-        @media (max-width: 768px) {
+        .debug-mode .stat-card {
+            border-left: 4px solid #ff0000;
+        }
+        
+                @media (max-width: 768px) {
             .container {
                 margin: 10px;
                 border-radius: 15px;
@@ -518,7 +528,7 @@
                 padding: 20px;
             }
             
-                        .controls {
+            .controls {
                 flex-direction: column;
                 align-items: stretch;
             }
@@ -855,7 +865,7 @@
     </div>
     
     <script>
-        class UltraGPSTracker {
+                class UltraGPSTracker {
             constructor() {
                 this.isTracking = false;
                 this.isPaused = false;
@@ -872,6 +882,8 @@
                 this.pausedTime = 0;
                 this.pauseStartTime = null;
                 this.wakeLock = null;
+                this.retryCount = 0;
+                this.maxRetries = 3;
                 
                 // Kalman filter variables
                 this.kalmanFilter = {
@@ -879,7 +891,7 @@
                     lon: { x: 0, p: 1000, q: 0.001, r: 1 }
                 };
                 
-                                // Sensor fusion data
+                // Sensor fusion data
                 this.deviceOrientation = { alpha: 0, beta: 0, gamma: 0 };
                 this.deviceMotion = { x: 0, y: 0, z: 0 };
                 this.lastHeading = null;
@@ -916,36 +928,40 @@
             
             async requestPermissions() {
                 try {
-                    // Request location permission
-                    if ('geolocation' in navigator) {
-                        console.log('Geolocation API available');
-                    } else {
-                        throw new Error('Geolocation not supported');
-                    }
+                    // Test geolocation first
+                    const testPosition = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            timeout: 5000,
+                            maximumAge: 60000
+                        });
+                    });
+                    console.log('Location permission granted');
                     
                     // Request device orientation permission (iOS 13+)
-                    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                        const permission = await DeviceOrientationEvent.requestPermission();
-                        if (permission !== 'granted') {
-                            console.warn('Device orientation permission denied');
+                    if (typeof DeviceOrientationEvent !== 'undefined' && 
+                        typeof DeviceOrientationEvent.requestPermission === 'function') {
+                        try {
+                            const permission = await DeviceOrientationEvent.requestPermission();
+                            console.log('Device orientation permission:', permission);
+                        } catch (e) {
+                            console.warn('Device orientation permission failed:', e);
                         }
                     }
                     
                     // Request device motion permission (iOS 13+)
-                    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-                        const permission = await DeviceMotionEvent.requestPermission();
-                        if (permission !== 'granted') {
-                            console.warn('Device motion permission denied');
+                    if (typeof DeviceMotionEvent !== 'undefined' && 
+                        typeof DeviceMotionEvent.requestPermission === 'function') {
+                        try {
+                            const permission = await DeviceMotionEvent.requestPermission();
+                            console.log('Device motion permission:', permission);
+                        } catch (e) {
+                            console.warn('Device motion permission failed:', e);
                         }
-                    }
-                    
-                    // Request wake lock permission
-                    if ('wakeLock' in navigator) {
-                        console.log('Wake Lock API available');
                     }
                     
                 } catch (error) {
                     console.warn('Permission request failed:', error);
+                    this.showError('Location permission required for GPS tracking');
                 }
             }
             
@@ -953,8 +969,17 @@
                 this.canvas = document.getElementById('trackCanvas');
                 if (this.canvas) {
                     this.ctx = this.canvas.getContext('2d');
-                    this.canvas.width = this.canvas.offsetWidth;
-                    this.canvas.height = this.canvas.offsetHeight;
+                    // Add proper canvas sizing
+                    const container = this.canvas.parentElement;
+                    this.canvas.width = container.clientWidth;
+                    this.canvas.height = container.clientHeight;
+                    // Add pixel ratio handling for high-DPI screens
+                    const ratio = window.devicePixelRatio || 1;
+                    this.canvas.width *= ratio;
+                    this.canvas.height *= ratio;
+                    this.canvas.style.width = container.clientWidth + 'px';
+                    this.canvas.style.height = container.clientHeight + 'px';
+                    this.ctx.scale(ratio, ratio);
                 }
             }
             
@@ -996,11 +1021,20 @@
                         console.log('Wake lock acquired');
                     }
                     
+                    // Get fresh options each time
+                    const gpsInterval = parseInt(document.getElementById('gpsInterval')?.value || '5000');
                     const options = {
                         enableHighAccuracy: document.getElementById('highAccuracy')?.checked ?? true,
                         timeout: parseInt(document.getElementById('positionTimeout')?.value || '15000'),
                         maximumAge: parseInt(document.getElementById('maximumAge')?.value || '10000')
                     };
+                    
+                    console.log('Starting GPS with options:', options);
+                    
+                    // Clear any existing watch
+                    if (this.watchId !== null) {
+                        navigator.geolocation.clearWatch(this.watchId);
+                    }
                     
                     this.watchId = navigator.geolocation.watchPosition(
                         (position) => this.onPositionUpdate(position),
@@ -1012,6 +1046,7 @@
                     this.isPaused = false;
                     this.startTime = Date.now();
                     this.pausedTime = 0;
+                    this.retryCount = 0;
                     
                     this.updateUI();
                     this.updateConnectionDisplay();
@@ -1081,6 +1116,9 @@
                 const coords = position.coords;
                 const timestamp = position.timestamp;
                 
+                // Reset retry count on successful update
+                this.retryCount = 0;
+                
                 // Apply Kalman filtering
                 const filteredCoords = this.applyKalmanFilter(coords);
                 
@@ -1123,26 +1161,62 @@
             
             onPositionError(error) {
                 let message = 'GPS Error: ';
+                let shouldRetry = false;
+                
                 switch (error.code) {
                     case error.PERMISSION_DENIED:
                         message += 'Location access denied by user';
                         break;
                     case error.POSITION_UNAVAILABLE:
                         message += 'Location information unavailable';
+                        shouldRetry = true;
                         break;
                     case error.TIMEOUT:
                         message += 'Location request timed out';
+                        shouldRetry = true;
                         break;
                     default:
                         message += 'Unknown error occurred';
+                        shouldRetry = true;
                         break;
                 }
                 
-                console.error(message);
+                console.error(message, error);
                 this.showError(message);
                 
                 // Update accuracy indicator
                 this.updateAccuracyIndicator(null);
+                
+                // Retry logic for transient errors
+                if (shouldRetry && this.isTracking && !this.isPaused && this.retryCount < this.maxRetries) {
+                    this.retryCount++;
+                    console.log(`Retrying GPS in 5 seconds... (${this.retryCount}/${this.maxRetries})`);
+                    setTimeout(() => {
+                        if (this.isTracking && !this.isPaused) {
+                            this.restartGPS();
+                        }
+                    }, 5000);
+                }
+            }
+            
+            restartGPS() {
+                console.log('Restarting GPS...');
+                if (this.watchId !== null) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                    this.watchId = null;
+                }
+                
+                const options = {
+                    enableHighAccuracy: document.getElementById('highAccuracy')?.checked ?? true,
+                    timeout: parseInt(document.getElementById('positionTimeout')?.value || '15000'),
+                    maximumAge: parseInt(document.getElementById('maximumAge')?.value || '10000')
+                };
+                
+                this.watchId = navigator.geolocation.watchPosition(
+                    (position) => this.onPositionUpdate(position),
+                    (error) => this.onPositionError(error),
+                    options
+                );
             }
             
             applyKalmanFilter(coords) {
@@ -1212,7 +1286,7 @@
                     this.totalDistance += distance;
                 }
                 
-                // Update max speed
+                                // Update max speed
                 if (point.speed && point.speed > this.maxSpeed) {
                     this.maxSpeed = point.speed;
                 }
@@ -1280,12 +1354,18 @@
                 const latRange = bounds.maxLat - bounds.minLat;
                 const lonRange = bounds.maxLon - bounds.minLon;
                 
-                const scaleX = (canvas.width - 2 * padding) / lonRange;
-                const scaleY = (canvas.height - 2 * padding) / latRange;
+                // Prevent division by zero
+                if (latRange === 0 && lonRange === 0) return;
+                
+                const containerWidth = canvas.parentElement.clientWidth;
+                const containerHeight = canvas.parentElement.clientHeight;
+                
+                const scaleX = lonRange > 0 ? (containerWidth - 2 * padding) / lonRange : 1;
+                const scaleY = latRange > 0 ? (containerHeight - 2 * padding) / latRange : 1;
                 const scale = Math.min(scaleX, scaleY);
                 
-                const offsetX = (canvas.width - lonRange * scale) / 2;
-                const offsetY = (canvas.height - latRange * scale) / 2;
+                const offsetX = (containerWidth - lonRange * scale) / 2;
+                const offsetY = (containerHeight - latRange * scale) / 2;
                 
                 // Draw track
                 ctx.strokeStyle = '#2196f3';
@@ -1293,7 +1373,7 @@
                 ctx.lineCap = 'round';
                 ctx.lineJoin = 'round';
                 
-                                ctx.beginPath();
+                ctx.beginPath();
                 this.filteredData.forEach((point, index) => {
                     const x = offsetX + (point.longitude - bounds.minLon) * scale;
                     const y = offsetY + (bounds.maxLat - point.latitude) * scale;
@@ -1372,8 +1452,11 @@
                     unit = 'm';
                 }
                 
+                const containerWidth = canvas.parentElement.clientWidth;
+                const containerHeight = canvas.parentElement.clientHeight;
+                
                 const x = 20;
-                const y = canvas.height - 30;
+                const y = containerHeight - 30;
                 
                 // Draw scale line
                 ctx.strokeStyle = '#333';
@@ -1397,7 +1480,8 @@
             drawCompass(ctx, canvas) {
                 if (!this.compassCalibrated) return;
                 
-                const centerX = canvas.width - 50;
+                const containerWidth = canvas.parentElement.clientWidth;
+                const centerX = containerWidth - 50;
                 const centerY = 50;
                 const radius = 30;
                 
@@ -1557,7 +1641,7 @@
                 if (validPoints === 0) return 0;
                 
                 const avgAccuracy = totalAccuracy / validPoints;
-                return Math.max(0, Math.min(100, Math.round(100 - (avgAccuracy / 50) * 100)));
+                                return Math.max(0, Math.min(100, Math.round(100 - (avgAccuracy / 50) * 100)));
             }
             
             calculateTrackSmoothness() {
@@ -1647,7 +1731,7 @@
                         if (resumeBtn) resumeBtn.style.display = 'inline-block';
                     } else {
                         if (pauseBtn) pauseBtn.disabled = false;
-                                                if (resumeBtn) resumeBtn.style.display = 'none';
+                        if (resumeBtn) resumeBtn.style.display = 'none';
                     }
                 } else {
                     if (startBtn) startBtn.disabled = false;
@@ -1744,12 +1828,15 @@
                 }
                 
                 // Reset displays
-                document.getElementById('coordinatesDisplay').innerHTML = `
-                    LAT: -.--------° LON: -.--------°<br>
-                    ALT: ---.- m  ACC: ---.- m<br>
-                    SPD: --.- km/h  HDG: ---°<br>
-                    UTC: ----/--/-- --:--:--
-                `;
+                const coordinatesDisplay = document.getElementById('coordinatesDisplay');
+                if (coordinatesDisplay) {
+                    coordinatesDisplay.innerHTML = `
+                        LAT: -.--------° LON: -.--------°<br>
+                        ALT: ---.- m  ACC: ---.- m<br>
+                        SPD: --.- km/h  HDG: ---°<br>
+                        UTC: ----/--/-- --:--:--
+                    `;
+                }
                 
                 this.updateAccuracyIndicator(null);
                 this.updateStatisticsDisplay();
@@ -1823,6 +1910,8 @@
                 const settingsModal = document.getElementById('settingsModal');
                 if (settingsModal) {
                     settingsModal.style.display = 'none';
+                    // Save settings when closing
+                    this.updateSettingsInfo();
                 }
             }
             
@@ -1901,7 +1990,7 @@
                 
                 this.filteredData.forEach(point => {
                     const time = new Date(point.timestamp).toISOString();
-                    gpx += `
+                                        gpx += `
       <trkpt lat="${point.latitude}" lon="${point.longitude}">`;
                     
                     if (point.altitude !== null) {
@@ -2046,7 +2135,7 @@
                     notification.style.transform = 'translateX(0)';
                 }, 100);
                 
-                                // Remove after 3 seconds
+                // Remove after 3 seconds
                 setTimeout(() => {
                     notification.style.transform = 'translateX(100%)';
                     setTimeout(() => {
@@ -2120,11 +2209,11 @@
             const content = element.nextElementSibling;
             const chevron = element.querySelector('.chevron');
             
-            if (content.style.maxHeight) {
-                content.style.maxHeight = null;
+            if (content.classList.contains('active')) {
+                content.classList.remove('active');
                 chevron.textContent = '▼';
             } else {
-                content.style.maxHeight = content.scrollHeight + 'px';
+                content.classList.add('active');
                 chevron.textContent = '▲';
             }
         }
@@ -2159,8 +2248,15 @@
         // Handle window resize
         window.addEventListener('resize', function() {
             if (gpsTracker && gpsTracker.canvas) {
-                gpsTracker.canvas.width = gpsTracker.canvas.offsetWidth;
-                gpsTracker.canvas.height = gpsTracker.canvas.offsetHeight;
+                const container = gpsTracker.canvas.parentElement;
+                gpsTracker.canvas.width = container.clientWidth;
+                gpsTracker.canvas.height = container.clientHeight;
+                const ratio = window.devicePixelRatio || 1;
+                gpsTracker.canvas.width *= ratio;
+                gpsTracker.canvas.height *= ratio;
+                gpsTracker.canvas.style.width = container.clientWidth + 'px';
+                gpsTracker.canvas.style.height = container.clientHeight + 'px';
+                gpsTracker.ctx.scale(ratio, ratio);
                 gpsTracker.drawTrack();
             }
         });
@@ -2229,7 +2325,7 @@
         // Service Worker registration for offline functionality
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('./sw.js')
                     .then(function(registration) {
                         console.log('ServiceWorker registration successful');
                     })
@@ -2325,24 +2421,204 @@
         
         // Double-tap on title to toggle debug mode
         let titleTapCount = 0;
-        document.querySelector('.header h1').addEventListener('click', function() {
-            titleTapCount++;
-            setTimeout(function() {
-                if (titleTapCount === 2) {
-                    toggleDebugMode();
-                }
-                titleTapCount = 0;
-            }, 300);
+        const headerTitle = document.querySelector('.header h1');
+        if (headerTitle) {
+            headerTitle.addEventListener('click', function() {
+                titleTapCount++;
+                setTimeout(function() {
+                    if (titleTapCount === 2) {
+                        toggleDebugMode();
+                    }
+                                    titleTapCount = 0;
+                }, 300);
+            });
+        }
+        
+        // Error handling for unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+            if (gpsTracker) {
+                gpsTracker.showError('An unexpected error occurred: ' + event.reason);
+            }
         });
         
+        // Error handling for general errors
+        window.addEventListener('error', function(event) {
+            console.error('Global error:', event.error);
+            if (gpsTracker) {
+                gpsTracker.showError('Application error: ' + event.message);
+            }
+        });
+        
+        // Auto-save data periodically
+        setInterval(function() {
+            if (gpsTracker && gpsTracker.isTracking && gpsTracker.trackData.length > 0) {
+                try {
+                    const trackData = {
+                        data: gpsTracker.trackData,
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem('gpsTrackerBackup', JSON.stringify(trackData));
+                } catch (error) {
+                    console.warn('Failed to backup track data:', error);
+                }
+            }
+        }, 60000); // Backup every minute
+        
+        // Restore data on page load if available
+        window.addEventListener('load', function() {
+            try {
+                const backup = localStorage.getItem('gpsTrackerBackup');
+                if (backup && gpsTracker) {
+                    const trackData = JSON.parse(backup);
+                    const age = Date.now() - trackData.timestamp;
+                    
+                    // Only restore if backup is less than 1 hour old
+                    if (age < 3600000 && trackData.data && trackData.data.length > 0) {
+                        const restore = confirm('Found previous GPS tracking session. Restore data?');
+                        if (restore) {
+                            gpsTracker.trackData = trackData.data;
+                            gpsTracker.filteredData = trackData.data.filter(point => 
+                                gpsTracker.shouldIncludePoint(point)
+                            );
+                            
+                            // Recalculate statistics
+                            gpsTracker.totalDistance = 0;
+                            gpsTracker.maxSpeed = 0;
+                            gpsTracker.elevationGain = 0;
+                            
+                            gpsTracker.filteredData.forEach((point, index) => {
+                                if (index > 0) {
+                                    gpsTracker.updateStatistics(point);
+                                }
+                                gpsTracker.updateTrackBounds(point);
+                            });
+                            
+                            gpsTracker.drawTrack();
+                            gpsTracker.updateStatisticsDisplay();
+                            gpsTracker.updateUI();
+                            
+                            gpsTracker.showNotification('Previous session restored', 'success');
+                        }
+                        
+                        // Clear backup after restore attempt
+                        localStorage.removeItem('gpsTrackerBackup');
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to restore backup data:', error);
+            }
+        });
+        
+        // Handle device orientation change
+        window.addEventListener('orientationchange', function() {
+            setTimeout(function() {
+                if (gpsTracker) {
+                    gpsTracker.setupCanvas();
+                    gpsTracker.drawTrack();
+                }
+            }, 500); // Delay to allow orientation change to complete
+        });
+        
+        // PWA installation prompt
+        let deferredPrompt;
+        
+        window.addEventListener('beforeinstallprompt', function(e) {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            console.log('PWA install prompt available');
+        });
+        
+        // Add install button functionality
+        function installPWA() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the PWA install prompt');
+                    } else {
+                        console.log('User dismissed the PWA install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+        
+        // Network change detection
+        let networkType = 'unknown';
+        if ('connection' in navigator) {
+            networkType = navigator.connection.effectiveType;
+            navigator.connection.addEventListener('change', function() {
+                const oldType = networkType;
+                networkType = navigator.connection.effectiveType;
+                console.log(`Network changed from ${oldType} to ${networkType}`);
+                
+                if (gpsTracker) {
+                    gpsTracker.updateConnectionDisplay();
+                    
+                    // Adjust GPS accuracy based on network
+                    if (networkType === 'slow-2g' || networkType === '2g') {
+                        gpsTracker.showNotification('Slow network detected - using power saving mode', 'warning');
+                    }
+                }
+            });
+        }
+        
+        // Memory management
+        function cleanupMemory() {
+            if (gpsTracker && gpsTracker.trackData.length > 10000) {
+                console.log('Cleaning up old track data to preserve memory');
+                // Keep only the last 5000 points
+                gpsTracker.trackData = gpsTracker.trackData.slice(-5000);
+                gpsTracker.filteredData = gpsTracker.filteredData.slice(-5000);
+                
+                // Recalculate bounds
+                gpsTracker.trackBounds = { minLat: null, maxLat: null, minLon: null, maxLon: null };
+                gpsTracker.filteredData.forEach(point => {
+                    gpsTracker.updateTrackBounds(point);
+                });
+                
+                gpsTracker.drawTrack();
+                gpsTracker.showNotification('Memory optimized - keeping recent 5000 points', 'info');
+            }
+        }
+        
+        // Run memory cleanup every 5 minutes
+        setInterval(cleanupMemory, 300000);
+        
+        // Geofencing simulation (for future enhancement)
+        function checkGeofence(latitude, longitude) {
+            // This is a placeholder for geofencing functionality
+            // Could be used to trigger alerts when entering/leaving specific areas
+            return false;
+        }
+        
+        // Log startup information
         console.log('Ultra GPS Tracker Pro - Script loaded successfully');
+        console.log('Features available:');
+        console.log('  - Geolocation API:', 'geolocation' in navigator);
+        console.log('  - Device Orientation:', 'DeviceOrientationEvent' in window);
+        console.log('  - Device Motion:', 'DeviceMotionEvent' in window);
+        console.log('  - Wake Lock API:', 'wakeLock' in navigator);
+        console.log('  - Service Worker:', 'serviceWorker' in navigator);
+        console.log('  - Battery API:', 'getBattery' in navigator);
+        console.log('  - Network Information:', 'connection' in navigator);
+        console.log('  - Local Storage:', 'localStorage' in window);
+        console.log('');
         console.log('Keyboard shortcuts:');
         console.log('  Ctrl+S: Start/Stop tracking');
         console.log('  Ctrl+P: Pause/Resume tracking');
         console.log('  Ctrl+E: Export GPX');
         console.log('  Shift+Delete: Clear data');
         console.log('  ESC: Close settings');
-        console.log('Double-click title to toggle debug mode');
+        console.log('  Double-click title: Toggle debug mode');
+        console.log('');
+        console.log('Touch gestures:');
+        console.log('  Swipe left/right: Navigation (future feature)');
+        console.log('');
+        console.log('GPS Tracker initialized and ready to use!');
     </script>
 </body>
 </html>
