@@ -40,7 +40,6 @@
             font-size: 28px;
             font-weight: 700;
             margin-bottom: 10px;
-            cursor: pointer;
         }
         
         .header .subtitle {
@@ -260,6 +259,9 @@
             display: none;
             width: 100%;
             height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
         }
         
         .stats-grid {
@@ -480,7 +482,7 @@
             margin-bottom: 20px;
         }
         
-        .info-item {
+                .info-item {
             text-align: center;
             padding: 15px;
             background: #f8f9fa;
@@ -500,17 +502,8 @@
             font-weight: 600;
             color: #333;
         }
-
-        /* Debug mode styles */
-        .debug-mode .coordinates-display {
-            border-color: #ff0000;
-        }
         
-        .debug-mode .stat-card {
-            border-left: 4px solid #ff0000;
-        }
-        
-                @media (max-width: 768px) {
+        @media (max-width: 768px) {
             .container {
                 margin: 10px;
                 border-radius: 15px;
@@ -630,7 +623,7 @@
             
             <!-- Map Container -->
             <div class="map-container">
-                <div class="map-placeholder">
+                <div class="map-placeholder" id="mapPlaceholder">
                     📍 GPS track will appear here when tracking starts
                 </div>
                 <canvas id="trackCanvas"></canvas>
@@ -810,52 +803,6 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Advanced Features -->
-                <div class="settings-section">
-                    <button class="collapsible" onclick="toggleCollapsible(this)">
-                        🚀 Advanced Features
-                        <span class="chevron">▼</span>
-                    </button>
-                    <div class="collapsible-content">
-                        <div class="collapsible-inner">
-                            <div class="form-group">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="enableMapTiles">
-                                    <label for="enableMapTiles">Enable Map Tiles (Requires Internet)</label>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="enableElevationAPI">
-                                    <label for="enableElevationAPI">Enhanced Elevation Data</label>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="enableCloudSync">
-                                    <label for="enableCloudSync">Cloud Synchronization</label>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="enableWeatherData">
-                                    <label for="enableWeatherData">Weather Data Integration</label>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="deadReckoning">
-                                    <label for="deadReckoning">Dead Reckoning (GPS Loss Recovery)</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeSettings()">Cancel</button>
@@ -865,14 +812,13 @@
     </div>
     
     <script>
-                class UltraGPSTracker {
+        class UltraGPSTracker {
             constructor() {
                 this.isTracking = false;
                 this.isPaused = false;
                 this.watchId = null;
                 this.trackData = [];
                 this.filteredData = [];
-                this.sensorData = [];
                 this.totalDistance = 0;
                 this.maxSpeed = 0;
                 this.elevationGain = 0;
@@ -882,20 +828,11 @@
                 this.pausedTime = 0;
                 this.pauseStartTime = null;
                 this.wakeLock = null;
-                this.retryCount = 0;
-                this.maxRetries = 3;
                 
-                // Kalman filter variables
-                this.kalmanFilter = {
-                    lat: { x: 0, p: 1000, q: 0.001, r: 1 },
-                    lon: { x: 0, p: 1000, q: 0.001, r: 1 }
-                };
-                
-                // Sensor fusion data
-                this.deviceOrientation = { alpha: 0, beta: 0, gamma: 0 };
-                this.deviceMotion = { x: 0, y: 0, z: 0 };
-                this.lastHeading = null;
-                this.compassCalibrated = false;
+                // Canvas for track visualization
+                this.canvas = null;
+                this.ctx = null;
+                this.trackBounds = { minLat: null, maxLat: null, minLon: null, maxLon: null };
                 
                 // Data usage tracking
                 this.dataUsage = {
@@ -904,10 +841,9 @@
                     mode: 'minimal'
                 };
                 
-                // Canvas for track visualization
-                this.canvas = null;
-                this.ctx = null;
-                this.trackBounds = { minLat: null, maxLat: null, minLon: null, maxLon: null };
+                // Device sensors
+                this.deviceOrientation = { alpha: 0, beta: 0, gamma: 0 };
+                this.compassCalibrated = false;
                 
                 this.init();
             }
@@ -915,53 +851,44 @@
             init() {
                 console.log('Initializing Ultra GPS Tracker Pro...');
                 this.setupCanvas();
-                this.setupSensors();
                 this.loadSettings();
                 this.updateConnectionDisplay();
                 this.startStatusUpdates();
-                
-                // Request permissions
                 this.requestPermissions();
-                
                 console.log('Ultra GPS Tracker Pro initialized successfully');
             }
             
             async requestPermissions() {
                 try {
-                    // Test geolocation first
-                    const testPosition = await new Promise((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject, {
-                            timeout: 5000,
-                            maximumAge: 60000
-                        });
-                    });
-                    console.log('Location permission granted');
-                    
-                    // Request device orientation permission (iOS 13+)
-                    if (typeof DeviceOrientationEvent !== 'undefined' && 
-                        typeof DeviceOrientationEvent.requestPermission === 'function') {
-                        try {
-                            const permission = await DeviceOrientationEvent.requestPermission();
-                            console.log('Device orientation permission:', permission);
-                        } catch (e) {
-                            console.warn('Device orientation permission failed:', e);
-                        }
+                    // Check geolocation support
+                    if (!('geolocation' in navigator)) {
+                        throw new Error('Geolocation not supported');
                     }
                     
-                    // Request device motion permission (iOS 13+)
-                    if (typeof DeviceMotionEvent !== 'undefined' && 
-                        typeof DeviceMotionEvent.requestPermission === 'function') {
-                        try {
-                            const permission = await DeviceMotionEvent.requestPermission();
-                            console.log('Device motion permission:', permission);
-                        } catch (e) {
-                            console.warn('Device motion permission failed:', e);
+                                        // Test geolocation access
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            console.log('GPS permission granted');
+                            this.showNotification('GPS access granted', 'success');
+                        },
+                        (error) => {
+                            console.warn('GPS permission error:', error.message);
+                            this.showError('GPS permission required for tracking');
+                        },
+                        { timeout: 10000, maximumAge: 60000, enableHighAccuracy: false }
+                    );
+                    
+                    // Request device orientation permission (iOS 13+)
+                    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                        const permission = await DeviceOrientationEvent.requestPermission();
+                        if (permission !== 'granted') {
+                            console.warn('Device orientation permission denied');
                         }
                     }
                     
                 } catch (error) {
                     console.warn('Permission request failed:', error);
-                    this.showError('Location permission required for GPS tracking');
+                    this.showError('Failed to initialize GPS: ' + error.message);
                 }
             }
             
@@ -969,45 +896,11 @@
                 this.canvas = document.getElementById('trackCanvas');
                 if (this.canvas) {
                     this.ctx = this.canvas.getContext('2d');
-                    // Add proper canvas sizing
+                    // Set canvas size to match container
                     const container = this.canvas.parentElement;
                     this.canvas.width = container.clientWidth;
                     this.canvas.height = container.clientHeight;
-                    // Add pixel ratio handling for high-DPI screens
-                    const ratio = window.devicePixelRatio || 1;
-                    this.canvas.width *= ratio;
-                    this.canvas.height *= ratio;
-                    this.canvas.style.width = container.clientWidth + 'px';
-                    this.canvas.style.height = container.clientHeight + 'px';
-                    this.ctx.scale(ratio, ratio);
-                }
-            }
-            
-            setupSensors() {
-                // Device orientation (compass)
-                if (window.DeviceOrientationEvent) {
-                    window.addEventListener('deviceorientation', (event) => {
-                        this.deviceOrientation = {
-                            alpha: event.alpha || 0,  // Compass heading
-                            beta: event.beta || 0,    // Front-to-back tilt
-                            gamma: event.gamma || 0   // Left-to-right tilt
-                        };
-                        this.compassCalibrated = event.absolute || false;
-                    });
-                }
-                
-                // Device motion (accelerometer)
-                if (window.DeviceMotionEvent) {
-                    window.addEventListener('devicemotion', (event) => {
-                        const acc = event.accelerationIncludingGravity;
-                        if (acc) {
-                            this.deviceMotion = {
-                                x: acc.x || 0,
-                                y: acc.y || 0,
-                                z: acc.z || 0
-                            };
-                        }
-                    });
+                    console.log('Canvas initialized:', this.canvas.width + 'x' + this.canvas.height);
                 }
             }
             
@@ -1015,26 +908,30 @@
                 if (this.isTracking) return;
                 
                 try {
-                    // Request wake lock to prevent screen from turning off
-                    if ('wakeLock' in navigator) {
-                        this.wakeLock = await navigator.wakeLock.request('screen');
-                        console.log('Wake lock acquired');
+                    console.log('Starting GPS tracking...');
+                    
+                    // Check geolocation support
+                    if (!navigator.geolocation) {
+                        throw new Error('Geolocation is not supported by this browser');
                     }
                     
-                    // Get fresh options each time
-                    const gpsInterval = parseInt(document.getElementById('gpsInterval')?.value || '5000');
+                    // Request wake lock to prevent screen from turning off
+                    if ('wakeLock' in navigator) {
+                        try {
+                            this.wakeLock = await navigator.wakeLock.request('screen');
+                            console.log('Wake lock acquired');
+                        } catch (err) {
+                            console.warn('Wake lock failed:', err);
+                        }
+                    }
+                    
                     const options = {
                         enableHighAccuracy: document.getElementById('highAccuracy')?.checked ?? true,
                         timeout: parseInt(document.getElementById('positionTimeout')?.value || '15000'),
                         maximumAge: parseInt(document.getElementById('maximumAge')?.value || '10000')
                     };
                     
-                    console.log('Starting GPS with options:', options);
-                    
-                    // Clear any existing watch
-                    if (this.watchId !== null) {
-                        navigator.geolocation.clearWatch(this.watchId);
-                    }
+                    console.log('GPS options:', options);
                     
                     this.watchId = navigator.geolocation.watchPosition(
                         (position) => this.onPositionUpdate(position),
@@ -1046,12 +943,11 @@
                     this.isPaused = false;
                     this.startTime = Date.now();
                     this.pausedTime = 0;
-                    this.retryCount = 0;
                     
                     this.updateUI();
                     this.updateConnectionDisplay();
                     
-                    console.log('GPS tracking started');
+                    console.log('GPS tracking started successfully');
                     this.showNotification('GPS tracking started', 'success');
                     
                 } catch (error) {
@@ -1066,6 +962,7 @@
                 if (this.watchId !== null) {
                     navigator.geolocation.clearWatch(this.watchId);
                     this.watchId = null;
+                    console.log('GPS watch cleared');
                 }
                 
                 // Release wake lock
@@ -1113,30 +1010,21 @@
             onPositionUpdate(position) {
                 if (!this.isTracking || this.isPaused) return;
                 
+                console.log('GPS position update:', position);
+                
                 const coords = position.coords;
                 const timestamp = position.timestamp;
                 
-                // Reset retry count on successful update
-                this.retryCount = 0;
-                
-                // Apply Kalman filtering
-                const filteredCoords = this.applyKalmanFilter(coords);
-                
                 // Create GPS point
                 const gpsPoint = {
-                    latitude: filteredCoords.latitude,
-                    longitude: filteredCoords.longitude,
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
                     altitude: coords.altitude,
                     accuracy: coords.accuracy,
                     altitudeAccuracy: coords.altitudeAccuracy,
                     heading: coords.heading,
                     speed: coords.speed,
-                    timestamp: timestamp,
-                    sensorData: {
-                        orientation: { ...this.deviceOrientation },
-                        motion: { ...this.deviceMotion },
-                        compassCalibrated: this.compassCalibrated
-                    }
+                    timestamp: timestamp
                 };
                 
                 // Store raw data
@@ -1157,97 +1045,30 @@
                 
                 // Track data usage
                 this.trackDataUsage(JSON.stringify(gpsPoint).length);
+                
+                console.log('Total points:', this.filteredData.length);
             }
             
             onPositionError(error) {
                 let message = 'GPS Error: ';
-                let shouldRetry = false;
-                
                 switch (error.code) {
                     case error.PERMISSION_DENIED:
                         message += 'Location access denied by user';
                         break;
                     case error.POSITION_UNAVAILABLE:
                         message += 'Location information unavailable';
-                        shouldRetry = true;
                         break;
                     case error.TIMEOUT:
                         message += 'Location request timed out';
-                        shouldRetry = true;
                         break;
                     default:
                         message += 'Unknown error occurred';
-                        shouldRetry = true;
                         break;
                 }
                 
                 console.error(message, error);
                 this.showError(message);
-                
-                // Update accuracy indicator
                 this.updateAccuracyIndicator(null);
-                
-                // Retry logic for transient errors
-                if (shouldRetry && this.isTracking && !this.isPaused && this.retryCount < this.maxRetries) {
-                    this.retryCount++;
-                    console.log(`Retrying GPS in 5 seconds... (${this.retryCount}/${this.maxRetries})`);
-                    setTimeout(() => {
-                        if (this.isTracking && !this.isPaused) {
-                            this.restartGPS();
-                        }
-                    }, 5000);
-                }
-            }
-            
-            restartGPS() {
-                console.log('Restarting GPS...');
-                if (this.watchId !== null) {
-                    navigator.geolocation.clearWatch(this.watchId);
-                    this.watchId = null;
-                }
-                
-                const options = {
-                    enableHighAccuracy: document.getElementById('highAccuracy')?.checked ?? true,
-                    timeout: parseInt(document.getElementById('positionTimeout')?.value || '15000'),
-                    maximumAge: parseInt(document.getElementById('maximumAge')?.value || '10000')
-                };
-                
-                this.watchId = navigator.geolocation.watchPosition(
-                    (position) => this.onPositionUpdate(position),
-                    (error) => this.onPositionError(error),
-                    options
-                );
-            }
-            
-            applyKalmanFilter(coords) {
-                // Simple Kalman filter implementation
-                const lat = this.kalmanFilter.lat;
-                const lon = this.kalmanFilter.lon;
-                
-                if (lat.x === 0) {
-                    // Initialize
-                    lat.x = coords.latitude;
-                    lon.x = coords.longitude;
-                } else {
-                    // Predict
-                    lat.p += lat.q;
-                    lon.p += lon.q;
-                    
-                    // Update
-                    const latK = lat.p / (lat.p + lat.r);
-                    const lonK = lon.p / (lon.p + lon.r);
-                    
-                    lat.x += latK * (coords.latitude - lat.x);
-                    lon.x += lonK * (coords.longitude - lon.x);
-                    
-                    lat.p *= (1 - latK);
-                    lon.p *= (1 - lonK);
-                }
-                
-                return {
-                    latitude: lat.x,
-                    longitude: lon.x
-                };
             }
             
             shouldIncludePoint(point) {
@@ -1256,6 +1077,7 @@
                 
                 // Check accuracy threshold
                 if (point.accuracy && point.accuracy > minAccuracy) {
+                    console.log('Point rejected - poor accuracy:', point.accuracy);
                     return false;
                 }
                 
@@ -1268,6 +1090,7 @@
                     );
                     
                     if (distance < minDistance) {
+                        console.log('Point rejected - too close:', distance + 'm');
                         return false;
                     }
                 }
@@ -1286,7 +1109,7 @@
                     this.totalDistance += distance;
                 }
                 
-                                // Update max speed
+                // Update max speed
                 if (point.speed && point.speed > this.maxSpeed) {
                     this.maxSpeed = point.speed;
                 }
@@ -1333,7 +1156,12 @@
             }
             
             drawTrack() {
-                if (!this.ctx || this.filteredData.length < 2) return;
+                if (!this.ctx || this.filteredData.length < 1) {
+                    console.log('Cannot draw track - no canvas or data');
+                    return;
+                }
+                
+                console.log('Drawing track with', this.filteredData.length, 'points');
                 
                 const canvas = this.canvas;
                 const ctx = this.ctx;
@@ -1341,33 +1169,51 @@
                 // Clear canvas
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 
-                // Show canvas
+                // Show canvas and hide placeholder
                 canvas.style.display = 'block';
-                canvas.parentElement.querySelector('.map-placeholder').style.display = 'none';
+                const placeholder = document.getElementById('mapPlaceholder');
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
+                
+                if (this.filteredData.length < 2) {
+                    // Just draw a single point
+                    const point = this.filteredData[0];
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    
+                    ctx.fillStyle = '#4caf50';
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('START', centerX, centerY + 4);
+                    return;
+                }
                 
                 // Calculate scale and offset
-                const padding = 20;
+                const padding = 40;
                 const bounds = this.trackBounds;
                 
-                if (bounds.minLat === null) return;
+                const latRange = Math.max(bounds.maxLat - bounds.minLat, 0.001); // Prevent division by zero
+                const lonRange = Math.max(bounds.maxLon - bounds.minLon, 0.001);
                 
-                const latRange = bounds.maxLat - bounds.minLat;
-                const lonRange = bounds.maxLon - bounds.minLon;
+                const availableWidth = canvas.width - 2 * padding;
+                const availableHeight = canvas.height - 2 * padding;
                 
-                // Prevent division by zero
-                if (latRange === 0 && lonRange === 0) return;
-                
-                const containerWidth = canvas.parentElement.clientWidth;
-                const containerHeight = canvas.parentElement.clientHeight;
-                
-                const scaleX = lonRange > 0 ? (containerWidth - 2 * padding) / lonRange : 1;
-                const scaleY = latRange > 0 ? (containerHeight - 2 * padding) / latRange : 1;
+                const scaleX = availableWidth / lonRange;
+                const scaleY = availableHeight / latRange;
                 const scale = Math.min(scaleX, scaleY);
                 
-                const offsetX = (containerWidth - lonRange * scale) / 2;
-                const offsetY = (containerHeight - latRange * scale) / 2;
+                const offsetX = (canvas.width - lonRange * scale) / 2;
+                const offsetY = (canvas.height - latRange * scale) / 2;
                 
-                // Draw track
+                console.log('Drawing scale:', scale, 'offset:', offsetX, offsetY);
+                
+                // Draw track line
                 ctx.strokeStyle = '#2196f3';
                 ctx.lineWidth = 3;
                 ctx.lineCap = 'round';
@@ -1387,24 +1233,21 @@
                 ctx.stroke();
                 
                 // Draw start point
-                if (this.filteredData.length > 0) {
-                    const startPoint = this.filteredData[0];
-                    const startX = offsetX + (startPoint.longitude - bounds.minLon) * scale;
-                    const startY = offsetY + (bounds.maxLat - startPoint.latitude) * scale;
-                    
-                    ctx.fillStyle = '#4caf50';
-                    ctx.beginPath();
-                    ctx.arc(startX, startY, 8, 0, 2 * Math.PI);
-                    ctx.fill();
-                    
-                    // Start label
-                    ctx.fillStyle = '#fff';
-                    ctx.font = 'bold 12px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('START', startX, startY + 4);
-                }
+                const startPoint = this.filteredData[0];
+                const startX = offsetX + (startPoint.longitude - bounds.minLon) * scale;
+                const startY = offsetY + (bounds.maxLat - startPoint.latitude) * scale;
                 
-                // Draw end point (current position)
+                ctx.fillStyle = '#4caf50';
+                ctx.beginPath();
+                ctx.arc(startX, startY, 8, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('START', startX, startY + 4);
+                
+                                // Draw current point
                 if (this.filteredData.length > 1) {
                     const endPoint = this.filteredData[this.filteredData.length - 1];
                     const endX = offsetX + (endPoint.longitude - bounds.minLon) * scale;
@@ -1415,28 +1258,30 @@
                     ctx.arc(endX, endY, 8, 0, 2 * Math.PI);
                     ctx.fill();
                     
-                    // End label
                     ctx.fillStyle = '#fff';
                     ctx.font = 'bold 12px Arial';
                     ctx.textAlign = 'center';
                     ctx.fillText('NOW', endX, endY + 4);
                     
-                    // Draw accuracy circle
-                    if (endPoint.accuracy) {
-                        const accuracyRadius = endPoint.accuracy * scale;
-                        ctx.strokeStyle = 'rgba(244, 67, 54, 0.3)';
-                        ctx.lineWidth = 1;
-                        ctx.beginPath();
-                        ctx.arc(endX, endY, Math.min(accuracyRadius, 50), 0, 2 * Math.PI);
-                        ctx.stroke();
+                    // Draw accuracy circle if available
+                    if (endPoint.accuracy && endPoint.accuracy > 0) {
+                        const accuracyRadius = Math.min(endPoint.accuracy * scale, 50);
+                        if (accuracyRadius > 5) {
+                            ctx.strokeStyle = 'rgba(244, 67, 54, 0.5)';
+                            ctx.lineWidth = 2;
+                            ctx.setLineDash([5, 5]);
+                            ctx.beginPath();
+                            ctx.arc(endX, endY, accuracyRadius, 0, 2 * Math.PI);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
                     }
                 }
                 
                 // Draw scale indicator
                 this.drawScaleIndicator(ctx, canvas, scale);
                 
-                // Draw compass
-                this.drawCompass(ctx, canvas);
+                console.log('Track drawn successfully');
             }
             
             drawScaleIndicator(ctx, canvas, scale) {
@@ -1452,15 +1297,17 @@
                     unit = 'm';
                 }
                 
-                const containerWidth = canvas.parentElement.clientWidth;
-                const containerHeight = canvas.parentElement.clientHeight;
-                
                 const x = 20;
-                const y = containerHeight - 30;
+                const y = canvas.height - 30;
+                
+                // Draw scale background
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fillRect(x - 10, y - 25, scaleLength + 20, 35);
                 
                 // Draw scale line
                 ctx.strokeStyle = '#333';
                 ctx.lineWidth = 2;
+                ctx.setLineDash([]);
                 ctx.beginPath();
                 ctx.moveTo(x, y);
                 ctx.lineTo(x + scaleLength, y);
@@ -1475,42 +1322,6 @@
                 ctx.font = '12px Arial';
                 ctx.textAlign = 'center';
                 ctx.fillText(`${displayDistance} ${unit}`, x + scaleLength / 2, y - 10);
-            }
-            
-            drawCompass(ctx, canvas) {
-                if (!this.compassCalibrated) return;
-                
-                const containerWidth = canvas.parentElement.clientWidth;
-                const centerX = containerWidth - 50;
-                const centerY = 50;
-                const radius = 30;
-                
-                // Draw compass circle
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                ctx.stroke();
-                
-                // Draw compass needle
-                const heading = this.toRadians(this.deviceOrientation.alpha || 0);
-                const needleLength = radius - 5;
-                
-                ctx.strokeStyle = '#f44336';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.lineTo(
-                    centerX + Math.sin(heading) * needleLength,
-                    centerY - Math.cos(heading) * needleLength
-                );
-                ctx.stroke();
-                
-                // Draw N indicator
-                ctx.fillStyle = '#333';
-                ctx.font = 'bold 12px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('N', centerX, centerY - radius - 10);
             }
             
             updateCoordinatesDisplay(point) {
@@ -1641,7 +1452,7 @@
                 if (validPoints === 0) return 0;
                 
                 const avgAccuracy = totalAccuracy / validPoints;
-                                return Math.max(0, Math.min(100, Math.round(100 - (avgAccuracy / 50) * 100)));
+                return Math.max(0, Math.min(100, Math.round(100 - (avgAccuracy / 50) * 100)));
             }
             
             calculateTrackSmoothness() {
@@ -1730,7 +1541,10 @@
                         if (pauseBtn) pauseBtn.style.display = 'none';
                         if (resumeBtn) resumeBtn.style.display = 'inline-block';
                     } else {
-                        if (pauseBtn) pauseBtn.disabled = false;
+                        if (pauseBtn) {
+                            pauseBtn.disabled = false;
+                            pauseBtn.style.display = 'inline-block';
+                        }
                         if (resumeBtn) resumeBtn.style.display = 'none';
                     }
                 } else {
@@ -1775,7 +1589,7 @@
                     connectionStatus.className = `status ${isOnline ? 'online' : 'offline'}`;
                 }
                 
-                if (dataUsage) {
+                                if (dataUsage) {
                     const usage = this.formatDataUsage(this.dataUsage.session);
                     dataUsage.textContent = usage;
                 }
@@ -1808,7 +1622,6 @@
                 
                 this.trackData = [];
                 this.filteredData = [];
-                this.sensorData = [];
                 this.totalDistance = 0;
                 this.maxSpeed = 0;
                 this.elevationGain = 0;
@@ -1820,23 +1633,23 @@
                 this.trackBounds = { minLat: null, maxLat: null, minLon: null, maxLon: null };
                 this.dataUsage.session = 0;
                 
-                // Clear canvas
+                // Clear canvas and show placeholder
                 if (this.ctx) {
                     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                     this.canvas.style.display = 'none';
-                    this.canvas.parentElement.querySelector('.map-placeholder').style.display = 'flex';
+                    const placeholder = document.getElementById('mapPlaceholder');
+                    if (placeholder) {
+                        placeholder.style.display = 'flex';
+                    }
                 }
                 
                 // Reset displays
-                const coordinatesDisplay = document.getElementById('coordinatesDisplay');
-                if (coordinatesDisplay) {
-                    coordinatesDisplay.innerHTML = `
-                        LAT: -.--------° LON: -.--------°<br>
-                        ALT: ---.- m  ACC: ---.- m<br>
-                        SPD: --.- km/h  HDG: ---°<br>
-                        UTC: ----/--/-- --:--:--
-                    `;
-                }
+                document.getElementById('coordinatesDisplay').innerHTML = `
+                    LAT: -.--------° LON: -.--------°<br>
+                    ALT: ---.- m  ACC: ---.- m<br>
+                    SPD: --.- km/h  HDG: ---°<br>
+                    UTC: ----/--/-- --:--:--
+                `;
                 
                 this.updateAccuracyIndicator(null);
                 this.updateStatisticsDisplay();
@@ -1883,12 +1696,7 @@
                         trackSmoothing: document.getElementById('trackSmoothing')?.checked ?? true,
                         minAccuracy: document.getElementById('minAccuracy')?.value || '50',
                         minDistance: document.getElementById('minDistance')?.value || '5',
-                        dataSavingMode: document.getElementById('dataSavingMode')?.value || 'minimal',
-                        enableMapTiles: document.getElementById('enableMapTiles')?.checked ?? false,
-                        enableElevationAPI: document.getElementById('enableElevationAPI')?.checked ?? false,
-                        enableCloudSync: document.getElementById('enableCloudSync')?.checked ?? false,
-                        enableWeatherData: document.getElementById('enableWeatherData')?.checked ?? false,
-                        deadReckoning: document.getElementById('deadReckoning')?.checked ?? false
+                        dataSavingMode: document.getElementById('dataSavingMode')?.value || 'minimal'
                     };
                     
                     localStorage.setItem('gpsTrackerSettings', JSON.stringify(settings));
@@ -1910,8 +1718,6 @@
                 const settingsModal = document.getElementById('settingsModal');
                 if (settingsModal) {
                     settingsModal.style.display = 'none';
-                    // Save settings when closing
-                    this.updateSettingsInfo();
                 }
             }
             
@@ -1990,7 +1796,7 @@
                 
                 this.filteredData.forEach(point => {
                     const time = new Date(point.timestamp).toISOString();
-                                        gpx += `
+                    gpx += `
       <trkpt lat="${point.latitude}" lon="${point.longitude}">`;
                     
                     if (point.altitude !== null) {
@@ -2074,8 +1880,7 @@
                         accuracy: point.accuracy,
                         speed: point.speed,
                         heading: point.heading,
-                        timestamp: point.timestamp,
-                        sensorData: point.sensorData
+                        timestamp: point.timestamp
                     }))
                 };
                 
@@ -2201,7 +2006,7 @@
             if (gpsTracker) gpsTracker.exportKML();
         }
         
-        function exportJSON() {
+                function exportJSON() {
             if (gpsTracker) gpsTracker.exportJSON();
         }
         
@@ -2211,9 +2016,11 @@
             
             if (content.classList.contains('active')) {
                 content.classList.remove('active');
+                content.style.maxHeight = null;
                 chevron.textContent = '▼';
             } else {
                 content.classList.add('active');
+                content.style.maxHeight = content.scrollHeight + 'px';
                 chevron.textContent = '▲';
             }
         }
@@ -2251,12 +2058,6 @@
                 const container = gpsTracker.canvas.parentElement;
                 gpsTracker.canvas.width = container.clientWidth;
                 gpsTracker.canvas.height = container.clientHeight;
-                const ratio = window.devicePixelRatio || 1;
-                gpsTracker.canvas.width *= ratio;
-                gpsTracker.canvas.height *= ratio;
-                gpsTracker.canvas.style.width = container.clientWidth + 'px';
-                gpsTracker.canvas.style.height = container.clientHeight + 'px';
-                gpsTracker.ctx.scale(ratio, ratio);
                 gpsTracker.drawTrack();
             }
         });
@@ -2325,7 +2126,7 @@
         // Service Worker registration for offline functionality
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
-                navigator.serviceWorker.register('./sw.js')
+                navigator.serviceWorker.register('/sw.js')
                     .then(function(registration) {
                         console.log('ServiceWorker registration successful');
                     })
@@ -2342,7 +2143,7 @@
         document.addEventListener('touchstart', function(e) {
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
-        });
+        }, { passive: true });
         
         document.addEventListener('touchend', function(e) {
             if (!touchStartX || !touchStartY) return;
@@ -2356,17 +2157,17 @@
             // Swipe detection (minimum 50px)
             if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
                 if (diffX > 0) {
-                    // Swipe left - could trigger an action
+                    // Swipe left
                     console.log('Swipe left detected');
                 } else {
-                    // Swipe right - could trigger an action
+                    // Swipe right
                     console.log('Swipe right detected');
                 }
             }
             
             touchStartX = 0;
             touchStartY = 0;
-        });
+        }, { passive: true });
         
         // Battery status monitoring
         if ('getBattery' in navigator) {
@@ -2384,6 +2185,8 @@
                 battery.addEventListener('chargingchange', updateBatteryInfo);
                 battery.addEventListener('levelchange', updateBatteryInfo);
                 updateBatteryInfo();
+            }).catch(function(error) {
+                console.log('Battery API not supported:', error);
             });
         }
         
@@ -2394,6 +2197,7 @@
             renderCalls: 0
         };
         
+        // Performance logging
         setInterval(function() {
             if (gpsTracker && gpsTracker.isTracking) {
                 const runtime = (performance.now() - performanceMetrics.startTime) / 1000;
@@ -2412,8 +2216,14 @@
             console.log('Debug mode:', debugMode ? 'ON' : 'OFF');
             
             if (debugMode) {
-                // Add debug info to display
                 document.body.classList.add('debug-mode');
+                console.log('GPS Tracker Debug Info:');
+                if (gpsTracker) {
+                    console.log('- Tracking:', gpsTracker.isTracking);
+                    console.log('- Points:', gpsTracker.filteredData.length);
+                    console.log('- Distance:', gpsTracker.totalDistance.toFixed(2) + 'm');
+                    console.log('- Bounds:', gpsTracker.trackBounds);
+                }
             } else {
                 document.body.classList.remove('debug-mode');
             }
@@ -2421,191 +2231,92 @@
         
         // Double-tap on title to toggle debug mode
         let titleTapCount = 0;
-        const headerTitle = document.querySelector('.header h1');
-        if (headerTitle) {
-            headerTitle.addEventListener('click', function() {
-                titleTapCount++;
-                setTimeout(function() {
-                    if (titleTapCount === 2) {
-                        toggleDebugMode();
-                    }
-                                    titleTapCount = 0;
-                }, 300);
-            });
-        }
+        let titleTapTimer = null;
         
-        // Error handling for unhandled promise rejections
+        document.querySelector('.header h1').addEventListener('click', function() {
+            titleTapCount++;
+            
+            if (titleTapTimer) {
+                clearTimeout(titleTapTimer);
+            }
+            
+            titleTapTimer = setTimeout(function() {
+                if (titleTapCount === 2) {
+                    toggleDebugMode();
+                }
+                titleTapCount = 0;
+                titleTapTimer = null;
+            }, 300);
+        });
+        
+        // Handle device orientation changes
+        window.addEventListener('orientationchange', function() {
+            setTimeout(function() {
+                if (gpsTracker && gpsTracker.canvas) {
+                    const container = gpsTracker.canvas.parentElement;
+                    gpsTracker.canvas.width = container.clientWidth;
+                    gpsTracker.canvas.height = container.clientHeight;
+                    gpsTracker.drawTrack();
+                }
+            }, 100);
+        });
+        
+        // Error handling for uncaught errors
+        window.addEventListener('error', function(event) {
+            console.error('Uncaught error:', event.error);
+            if (gpsTracker) {
+                gpsTracker.showError('An unexpected error occurred: ' + event.error.message);
+            }
+        });
+        
+        // Handle unhandled promise rejections
         window.addEventListener('unhandledrejection', function(event) {
             console.error('Unhandled promise rejection:', event.reason);
             if (gpsTracker) {
-                gpsTracker.showError('An unexpected error occurred: ' + event.reason);
+                gpsTracker.showError('An unexpected error occurred');
             }
+            event.preventDefault();
         });
         
-        // Error handling for general errors
-        window.addEventListener('error', function(event) {
-            console.error('Global error:', event.error);
-            if (gpsTracker) {
-                gpsTracker.showError('Application error: ' + event.message);
-            }
-        });
+        // Initialize GPS permission check on first user interaction
+        let permissionChecked = false;
         
-        // Auto-save data periodically
-        setInterval(function() {
-            if (gpsTracker && gpsTracker.isTracking && gpsTracker.trackData.length > 0) {
-                try {
-                    const trackData = {
-                        data: gpsTracker.trackData,
-                        timestamp: Date.now()
-                    };
-                    localStorage.setItem('gpsTrackerBackup', JSON.stringify(trackData));
-                } catch (error) {
-                    console.warn('Failed to backup track data:', error);
-                }
-            }
-        }, 60000); // Backup every minute
-        
-        // Restore data on page load if available
-        window.addEventListener('load', function() {
-            try {
-                const backup = localStorage.getItem('gpsTrackerBackup');
-                if (backup && gpsTracker) {
-                    const trackData = JSON.parse(backup);
-                    const age = Date.now() - trackData.timestamp;
-                    
-                    // Only restore if backup is less than 1 hour old
-                    if (age < 3600000 && trackData.data && trackData.data.length > 0) {
-                        const restore = confirm('Found previous GPS tracking session. Restore data?');
-                        if (restore) {
-                            gpsTracker.trackData = trackData.data;
-                            gpsTracker.filteredData = trackData.data.filter(point => 
-                                gpsTracker.shouldIncludePoint(point)
-                            );
-                            
-                            // Recalculate statistics
-                            gpsTracker.totalDistance = 0;
-                            gpsTracker.maxSpeed = 0;
-                            gpsTracker.elevationGain = 0;
-                            
-                            gpsTracker.filteredData.forEach((point, index) => {
-                                if (index > 0) {
-                                    gpsTracker.updateStatistics(point);
-                                }
-                                gpsTracker.updateTrackBounds(point);
-                            });
-                            
-                            gpsTracker.drawTrack();
-                            gpsTracker.updateStatisticsDisplay();
-                            gpsTracker.updateUI();
-                            
-                            gpsTracker.showNotification('Previous session restored', 'success');
+        function checkGPSPermission() {
+            if (permissionChecked) return;
+            permissionChecked = true;
+            
+            if ('permissions' in navigator) {
+                navigator.permissions.query({ name: 'geolocation' })
+                    .then(function(result) {
+                        console.log('GPS permission status:', result.state);
+                        if (result.state === 'denied') {
+                            if (gpsTracker) {
+                                gpsTracker.showError('GPS permission is required for tracking. Please enable location access in your browser settings.');
+                            }
                         }
                         
-                        // Clear backup after restore attempt
-                        localStorage.removeItem('gpsTrackerBackup');
-                    }
-                }
-            } catch (error) {
-                console.warn('Failed to restore backup data:', error);
-            }
-        });
-        
-        // Handle device orientation change
-        window.addEventListener('orientationchange', function() {
-            setTimeout(function() {
-                if (gpsTracker) {
-                    gpsTracker.setupCanvas();
-                    gpsTracker.drawTrack();
-                }
-            }, 500); // Delay to allow orientation change to complete
-        });
-        
-        // PWA installation prompt
-        let deferredPrompt;
-        
-        window.addEventListener('beforeinstallprompt', function(e) {
-            // Prevent Chrome 67 and earlier from automatically showing the prompt
-            e.preventDefault();
-            // Stash the event so it can be triggered later
-            deferredPrompt = e;
-            console.log('PWA install prompt available');
-        });
-        
-        // Add install button functionality
-        function installPWA() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('User accepted the PWA install prompt');
-                    } else {
-                        console.log('User dismissed the PWA install prompt');
-                    }
-                    deferredPrompt = null;
-                });
+                        result.addEventListener('change', function() {
+                            console.log('GPS permission changed to:', result.state);
+                        });
+                    })
+                    .catch(function(error) {
+                        console.log('Permission query not supported:', error);
+                    });
             }
         }
         
-        // Network change detection
-        let networkType = 'unknown';
-        if ('connection' in navigator) {
-            networkType = navigator.connection.effectiveType;
-            navigator.connection.addEventListener('change', function() {
-                const oldType = networkType;
-                networkType = navigator.connection.effectiveType;
-                console.log(`Network changed from ${oldType} to ${networkType}`);
-                
-                if (gpsTracker) {
-                    gpsTracker.updateConnectionDisplay();
-                    
-                    // Adjust GPS accuracy based on network
-                    if (networkType === 'slow-2g' || networkType === '2g') {
-                        gpsTracker.showNotification('Slow network detected - using power saving mode', 'warning');
-                    }
-                }
-            });
-        }
+        // Check permission on first click
+        document.addEventListener('click', checkGPSPermission, { once: true });
         
-        // Memory management
-        function cleanupMemory() {
-            if (gpsTracker && gpsTracker.trackData.length > 10000) {
-                console.log('Cleaning up old track data to preserve memory');
-                // Keep only the last 5000 points
-                gpsTracker.trackData = gpsTracker.trackData.slice(-5000);
-                gpsTracker.filteredData = gpsTracker.filteredData.slice(-5000);
-                
-                // Recalculate bounds
-                gpsTracker.trackBounds = { minLat: null, maxLat: null, minLon: null, maxLon: null };
-                gpsTracker.filteredData.forEach(point => {
-                    gpsTracker.updateTrackBounds(point);
-                });
-                
-                gpsTracker.drawTrack();
-                gpsTracker.showNotification('Memory optimized - keeping recent 5000 points', 'info');
-            }
-        }
-        
-        // Run memory cleanup every 5 minutes
-        setInterval(cleanupMemory, 300000);
-        
-        // Geofencing simulation (for future enhancement)
-        function checkGeofence(latitude, longitude) {
-            // This is a placeholder for geofencing functionality
-            // Could be used to trigger alerts when entering/leaving specific areas
-            return false;
-        }
-        
-        // Log startup information
+        // Log initialization
         console.log('Ultra GPS Tracker Pro - Script loaded successfully');
-        console.log('Features available:');
-        console.log('  - Geolocation API:', 'geolocation' in navigator);
-        console.log('  - Device Orientation:', 'DeviceOrientationEvent' in window);
-        console.log('  - Device Motion:', 'DeviceMotionEvent' in window);
-        console.log('  - Wake Lock API:', 'wakeLock' in navigator);
-        console.log('  - Service Worker:', 'serviceWorker' in navigator);
-        console.log('  - Battery API:', 'getBattery' in navigator);
-        console.log('  - Network Information:', 'connection' in navigator);
-        console.log('  - Local Storage:', 'localStorage' in window);
+        console.log('Available features:');
+        console.log('- Geolocation API:', 'geolocation' in navigator ? '✓' : '✗');
+        console.log('- Service Worker:', 'serviceWorker' in navigator ? '✓' : '✗');
+        console.log('- Wake Lock API:', 'wakeLock' in navigator ? '✓' : '✗');
+        console.log('- Battery API:', 'getBattery' in navigator ? '✓' : '✗');
+        console.log('- Device Orientation:', 'DeviceOrientationEvent' in window ? '✓' : '✗');
+        console.log('- Device Motion:', 'DeviceMotionEvent' in window ? '✓' : '✗');
         console.log('');
         console.log('Keyboard shortcuts:');
         console.log('  Ctrl+S: Start/Stop tracking');
@@ -2614,11 +2325,6 @@
         console.log('  Shift+Delete: Clear data');
         console.log('  ESC: Close settings');
         console.log('  Double-click title: Toggle debug mode');
-        console.log('');
-        console.log('Touch gestures:');
-        console.log('  Swipe left/right: Navigation (future feature)');
-        console.log('');
-        console.log('GPS Tracker initialized and ready to use!');
     </script>
 </body>
 </html>
