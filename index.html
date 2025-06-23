@@ -1,34 +1,17 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>KML GPS Tracker (Advanced)</title>
+  <title>Smart KML GPS Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-    }
-    button {
-      padding: 10px 20px;
-      margin: 5px;
-      font-size: 16px;
-    }
-    #log {
-      max-height: 250px;
-      overflow-y: auto;
-      border: 1px solid #ccc;
-      padding: 10px;
-      margin-top: 10px;
-      background: #f9f9f9;
-      font-size: 14px;
-    }
-    #status {
-      margin-top: 10px;
-    }
+    body { font-family: sans-serif; padding: 20px; }
+    button { padding: 10px 20px; margin: 5px; font-size: 16px; }
+    #log { max-height: 250px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 10px; background: #f9f9f9; font-size: 14px; }
+    #status { margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h1>📍 KML GPS Tracker (Advanced)</h1>
+  <h1>📍 Smart KML GPS Tracker</h1>
   <button onclick="startTracking()">Start Tracking</button>
   <button onclick="stopTracking()">Stop & Download KML</button>
   <p id="status">Status: Not started</p>
@@ -37,7 +20,10 @@
   <script>
     let watchId;
     let coordinates = [];
-    let lastGoodPoint = null;
+    let buffer = []; // recent points buffer
+    const bufferSize = 5;
+    const accuracyLimit = 25;
+    const logDistanceThreshold = 10; // meters
 
     function startTracking() {
       if (!navigator.geolocation) {
@@ -46,37 +32,42 @@
       }
 
       coordinates = [];
-      lastGoodPoint = null;
+      buffer = [];
       document.getElementById("log").innerHTML = "";
       document.getElementById("status").textContent = "Status: Tracking...";
 
       watchId = navigator.geolocation.watchPosition(
         (position) => {
-          const lat = position.coords.latitude;
-          const lon = position.coords.longitude;
-          const alt = position.coords.altitude ?? 0;
-          const acc = position.coords.accuracy;
-          const speed = position.coords.speed ?? 0;
+          const { latitude: lat, longitude: lon, altitude, accuracy, speed } = position.coords;
+          const alt = altitude ?? 0;
+          const spd = speed ?? 0;
           const time = new Date().toISOString();
 
-          if (acc > 25) {
-            log(`⚠️ Ignored: Accuracy too low (${Math.round(acc)}m)`);
+          if (accuracy > accuracyLimit) {
+            log(`⚠️ Ignored (Low accuracy: ${Math.round(accuracy)}m)`);
             return;
           }
 
-          const point = { lat, lon, alt, time };
+          const point = { lat, lon, alt, accuracy, time };
 
-          if (lastGoodPoint && !hasMovedEnough(lastGoodPoint, point)) {
-            log(`🔸 Skipped: No significant movement`);
+          // Add to buffer
+          buffer.push(point);
+          if (buffer.length > bufferSize) buffer.shift();
+
+          // Compute average of buffered points
+          const avg = averageCoords(buffer);
+
+          const distFromAvg = distanceInMeters(lat, lon, avg.lat, avg.lon);
+
+          if (distFromAvg < logDistanceThreshold && coordinates.length > 0) {
+            log(`🔸 Skipped (within ${distFromAvg.toFixed(1)}m of average)`);
             return;
           }
-
-          lastGoodPoint = point;
 
           const kmlCoord = `${lon},${lat},${alt}`;
           coordinates.push(kmlCoord);
 
-          log(`✅ Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}, Alt: ${Math.round(alt)}m, Speed: ${Math.round(speed * 3.6)} km/h (±${Math.round(acc)}m)`);
+          log(`✅ ${lat.toFixed(5)}, ${lon.toFixed(5)} | Alt: ${Math.round(alt)}m | Speed: ${Math.round(spd * 3.6)} km/h | ±${Math.round(accuracy)}m`);
         },
         (err) => {
           alert("Error getting position: " + err.message);
@@ -128,10 +119,29 @@
       logDiv.scrollTop = logDiv.scrollHeight;
     }
 
-    function hasMovedEnough(last, current) {
-      const deltaLat = Math.abs(last.lat - current.lat);
-      const deltaLon = Math.abs(last.lon - current.lon);
-      return deltaLat > 0.00002 || deltaLon > 0.00002; // ~2m movement
+    function averageCoords(points) {
+      const sum = points.reduce((acc, p) => {
+        acc.lat += p.lat;
+        acc.lon += p.lon;
+        return acc;
+      }, { lat: 0, lon: 0 });
+      return {
+        lat: sum.lat / points.length,
+        lon: sum.lon / points.length
+      };
+    }
+
+    function distanceInMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371e3; // Earth radius in meters
+      const toRad = deg => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
     }
   </script>
 </body>
