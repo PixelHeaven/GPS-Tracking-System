@@ -1,96 +1,698 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>KML GPS Tracker (Every Second)</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: sans-serif; padding: 20px; }
-    button { padding: 10px 20px; margin: 5px; font-size: 16px; }
-    #log { max-height: 250px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-top: 10px; background: #f9f9f9; font-size: 14px; }
-    #status { margin-top: 10px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced GPS Tracker</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            color: #333;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .status.active {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .status.inactive {
+            background: #f44336;
+            color: white;
+        }
+        
+        .status.waiting {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .info-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-card h3 {
+            margin: 0 0 5px 0;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .info-card p {
+            margin: 0;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .start-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .stop-btn {
+            background: #f44336;
+            color: white;
+        }
+        
+        .export-btn {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .clear-btn {
+            background: #ff9800;
+            color: white;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .track-info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .settings {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ff9800;
+        }
+        
+        .settings label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+        
+        .settings input, .settings select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 5px;
+            box-sizing: border-box;
+        }
+        
+        .coordinates {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+    </style>
 </head>
 <body>
-  <h1>📍 KML GPS Tracker (Every Second)</h1>
-  <button onclick="startTracking()">Start Tracking</button>
-  <button onclick="stopTracking()">Stop & Download KML</button>
-  <p id="status">Status: Not started</p>
-  <div id="log"></div>
+    <div class="container">
+        <h1 style="text-align: center; margin-bottom: 30px; color: #333;">🛰️ Advanced GPS Tracker</h1>
+        
+        <div id="status" class="status inactive">
+            GPS Tracking: Inactive
+        </div>
+        
+        <div class="settings">
+            <label>
+                Update Interval (seconds):
+                <input type="number" id="updateInterval" value="1" min="1" max="60">
+            </label>
+            <label>
+                High Accuracy Mode:
+                <select id="highAccuracy">
+                    <option value="true">Enabled (More Battery Usage)</option>
+                    <option value="false">Disabled (Battery Saving)</option>
+                </select>
+            </label>
+            <label>
+                Maximum Age (milliseconds):
+                <input type="number" id="maximumAge" value="1000" min="0" max="300000">
+            </label>
+            <label>
+                Timeout (milliseconds):
+                <input type="number" id="timeout" value="10000" min="1000" max="60000">
+            </label>
+        </div>
+        
+        <div class="info-grid">
+            <div class="info-card">
+                <h3>Latitude</h3>
+                <p id="latitude" class="coordinates">-</p>
+            </div>
+            <div class="info-card">
+                <h3>Longitude</h3>
+                <p id="longitude" class="coordinates">-</p>
+            </div>
+            <div class="info-card">
+                <h3>Accuracy</h3>
+                <p id="accuracy">- m</p>
+            </div>
+            <div class="info-card">
+                <h3>Altitude</h3>
+                <p id="altitude">- m</p>
+            </div>
+            <div class="info-card">
+                <h3>Speed</h3>
+                <p id="speed">- km/h</p>
+            </div>
+            <div class="info-card">
+                <h3>Heading</h3>
+                <p id="heading">-°</p>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn" class="start-btn" onclick="startTracking()">Start</button>
+            <button id="stopBtn" class="stop-btn" onclick="stopTracking()" disabled>Stop</button>
+        </div>
+        
+        <div class="controls">
+            <button id="exportBtn" class="export-btn" onclick="exportKML()" disabled>Export KML</button>
+            <button id="clearBtn" class="clear-btn" onclick="clearData()">Clear Data</button>
+        </div>
+        
+        <div class="track-info">
+            <h3>📊 Tracking Statistics</h3>
+            <p><strong>Points Recorded:</strong> <span id="pointCount">0</span></p>
+            <p><strong>Distance Traveled:</strong> <span id="distance">0.00 km</span></p>
+            <p><strong>Duration:</strong> <span id="duration">00:00:00</span></p>
+            <p><strong>Average Speed:</strong> <span id="avgSpeed">0.00 km/h</span></p>
+            <p><strong>Max Speed:</strong> <span id="maxSpeed">0.00 km/h</span></p>
+            <p><strong>Last Update:</strong> <span id="lastUpdate">Never</span></p>
+        </div>
+    </div>
 
-  <script>
-    let intervalId;
-    let coordinates = [];
-
-    function startTracking() {
-      if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser.");
-        return;
-      }
-
-      coordinates = [];
-      document.getElementById("log").innerHTML = "";
-      document.getElementById("status").textContent = "Status: Tracking...";
-
-      intervalId = setInterval(() => {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude: lat, longitude: lon, altitude, accuracy, speed } = position.coords;
-            const alt = altitude ?? 0;
-            const spd = speed ?? 0;
-
-            const kmlCoord = `${lon},${lat},${alt}`;
-            coordinates.push(kmlCoord);
-
-            log(`✅ ${lat.toFixed(5)}, ${lon.toFixed(5)} | Alt: ${Math.round(alt)}m | Speed: ${Math.round(spd * 3.6)} km/h | ±${Math.round(accuracy)}m`);
-          },
-          (err) => {
-            log(`❌ Error: ${err.message}`);
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-          }
-        );
-      }, 1000); // Every 1000 ms = 1 second
-    }
-
-    function stopTracking() {
-      clearInterval(intervalId);
-      document.getElementById("status").textContent = "Status: Stopped";
-      generateKML();
-    }
-
-    function generateKML() {
-      if (coordinates.length === 0) {
-        alert("No GPS points collected.");
-        return;
-      }
-
-      let kml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-      kml += `<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n<Placemark>\n`;
-      kml += `<name>GPS Track</name>\n`;
-      kml += `<Style><LineStyle><color>ff0000ff</color><width>4</width></LineStyle></Style>\n`;
-      kml += `<LineString><tessellate>1</tessellate><coordinates>\n`;
-      kml += coordinates.join("\n") + "\n";
-      kml += `</coordinates></LineString>\n`;
-      kml += `</Placemark>\n</Document>\n</kml>`;
-
-      const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'track.kml';
-      a.click();
-    }
-
-    function log(msg) {
-      const logDiv = document.getElementById("log");
-      const p = document.createElement("p");
-      p.textContent = msg;
-      logDiv.appendChild(p);
-      logDiv.scrollTop = logDiv.scrollHeight;
-    }
-  </script>
+    <script>
+        class AdvancedGPSTracker {
+            constructor() {
+                this.isTracking = false;
+                this.watchId = null;
+                this.trackData = [];
+                this.startTime = null;
+                this.totalDistance = 0;
+                this.maxSpeed = 0;
+                this.updateTimer = null;
+                
+                // Check if geolocation is supported
+                if (!navigator.geolocation) {
+                    alert('Geolocation is not supported by this browser.');
+                    return;
+                }
+                
+                this.requestPermissions();
+            }
+            
+            async requestPermissions() {
+                try {
+                    // Request location permission
+                    const permission = await navigator.permissions.query({name: 'geolocation'});
+                    if (permission.state === 'denied') {
+                        alert('Location permission is denied. Please enable location access in your browser settings.');
+                    }
+                } catch (error) {
+                    console.log('Permission API not supported');
+                }
+            }
+            
+            getOptions() {
+                return {
+                    enableHighAccuracy: document.getElementById('highAccuracy').value === 'true',
+                    timeout: parseInt(document.getElementById('timeout').value),
+                    maximumAge: parseInt(document.getElementById('maximumAge').value)
+                };
+            }
+            
+            startTracking() {
+                if (this.isTracking) return;
+                
+                this.isTracking = true;
+                this.startTime = new Date();
+                this.totalDistance = 0;
+                this.maxSpeed = 0;
+                
+                this.updateStatus('waiting', 'GPS Tracking: Getting Location...');
+                this.updateButtons();
+                
+                const options = this.getOptions();
+                const updateInterval = parseInt(document.getElementById('updateInterval').value) * 1000;
+                
+                // Use watchPosition for continuous tracking
+                this.watchId = navigator.geolocation.watchPosition(
+                    (position) => this.onLocationSuccess(position),
+                    (error) => this.onLocationError(error),
+                    options
+                );
+                
+                // Update duration every second
+                this.updateTimer = setInterval(() => {
+                    this.updateDuration();
+                }, 1000);
+            }
+            
+            stopTracking() {
+                if (!this.isTracking) return;
+                
+                this.isTracking = false;
+                
+                if (this.watchId !== null) {
+                    navigator.geolocation.clearWatch(this.watchId);
+                    this.watchId = null;
+                }
+                
+                if (this.updateTimer) {
+                    clearInterval(this.updateTimer);
+                    this.updateTimer = null;
+                }
+                
+                this.updateStatus('inactive', 'GPS Tracking: Stopped');
+                this.updateButtons();
+            }
+            
+            onLocationSuccess(position) {
+                const coords = position.coords;
+                const timestamp = new Date(position.timestamp);
+                
+                // Create location point
+                const point = {
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
+                    altitude: coords.altitude || 0,
+                    accuracy: coords.accuracy,
+                    altitudeAccuracy: coords.altitudeAccuracy || 0,
+                    heading: coords.heading || 0,
+                    speed: coords.speed || 0,
+                    timestamp: timestamp
+                };
+                
+                // Calculate distance if we have a previous point
+                if (this.trackData.length > 0) {
+                    const lastPoint = this.trackData[this.trackData.length - 1];
+                    const distance = this.calculateDistance(
+                        lastPoint.latitude, lastPoint.longitude,
+                        point.latitude, point.longitude
+                    );
+                    this.totalDistance += distance;
+                }
+                
+                // Update max speed
+                if (point.speed > this.maxSpeed) {
+                    this.maxSpeed = point.speed;
+                }
+                
+                this.trackData.push(point);
+                this.updateDisplay(point);
+                this.updateStatus('active', 'GPS Tracking: Active');
+            }
+            
+            onLocationError(error) {
+                let message = 'GPS Error: ';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        message += 'Location access denied by user.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        message += 'Location information unavailable.';
+                        break;
+                    case error.TIMEOUT:
+                        message += 'Location request timed out.';
+                        break;
+                    default:
+                        message += 'Unknown error occurred.';
+                        break;
+                }
+                
+                this.updateStatus('inactive', message);
+                console.error('Geolocation error:', error);
+            }
+            
+            updateDisplay(point) {
+                document.getElementById('latitude').textContent = point.latitude.toFixed(8);
+                document.getElementById('longitude').textContent = point.longitude.toFixed(8);
+                document.getElementById('accuracy').textContent = point.accuracy.toFixed(1) + ' m';
+                document.getElementById('altitude').textContent = point.altitude.toFixed(1) + ' m';
+                document.getElementById('speed').textContent = (point.speed * 3.6).toFixed(2) + ' km/h'; // Convert m/s to km/h
+                document.getElementById('heading').textContent = point.heading.toFixed(0) + '°';
+                document.getElementById('pointCount').textContent = this.trackData.length;
+                document.getElementById('distance').textContent = (this.totalDistance / 1000).toFixed(2) + ' km';
+                document.getElementById('maxSpeed').textContent = (this.maxSpeed * 3.6).toFixed(2) + ' km/h';
+                document.getElementById('lastUpdate').textContent = point.timestamp.toLocaleTimeString();
+                
+                // Calculate average speed
+                if (this.startTime) {
+                    const durationHours = (Date.now() - this.startTime.getTime()) / (1000 * 60 * 60);
+                    const avgSpeed = durationHours > 0 ? (this.totalDistance / 1000) / durationHours : 0;
+                    document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(2) + ' km/h';
+                }
+            }
+            
+            updateDuration() {
+                if (!this.startTime) return;
+                
+                const duration = Date.now() - this.startTime.getTime();
+                const hours = Math.floor(duration / (1000 * 60 * 60));
+                const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((duration % (1000 * 60)) / 1000);
+                
+                document.getElementById('duration').textContent = 
+                                        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+            
+            updateStatus(type, message) {
+                const statusElement = document.getElementById('status');
+                statusElement.className = `status ${type}`;
+                statusElement.textContent = message;
+            }
+            
+            updateButtons() {
+                const startBtn = document.getElementById('startBtn');
+                const stopBtn = document.getElementById('stopBtn');
+                const exportBtn = document.getElementById('exportBtn');
+                
+                startBtn.disabled = this.isTracking;
+                stopBtn.disabled = !this.isTracking;
+                exportBtn.disabled = this.trackData.length === 0;
+            }
+            
+            calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371000; // Earth's radius in meters
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                        Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            }
+            
+            exportKML() {
+                if (this.trackData.length === 0) {
+                    alert('No tracking data available to export.');
+                    return;
+                }
+                
+                const kml = this.generateKML();
+                const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `gps-track-${new Date().toISOString().split('T')[0]}.kml`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+            
+            generateKML() {
+                const trackName = `GPS Track - ${new Date().toLocaleDateString()}`;
+                const description = `
+                    <![CDATA[
+                    <b>GPS Tracking Data</b><br/>
+                    Points: ${this.trackData.length}<br/>
+                    Distance: ${(this.totalDistance / 1000).toFixed(2)} km<br/>
+                    Max Speed: ${(this.maxSpeed * 3.6).toFixed(2)} km/h<br/>
+                    Start Time: ${this.startTime ? this.startTime.toLocaleString() : 'N/A'}<br/>
+                    End Time: ${this.trackData.length > 0 ? this.trackData[this.trackData.length - 1].timestamp.toLocaleString() : 'N/A'}
+                    ]]>
+                `;
+                
+                let coordinates = '';
+                let placemarks = '';
+                
+                this.trackData.forEach((point, index) => {
+                    // Add to track line coordinates
+                    coordinates += `${point.longitude},${point.latitude},${point.altitude}\n`;
+                    
+                    // Create placemark for every 10th point or significant points
+                    if (index % 10 === 0 || index === 0 || index === this.trackData.length - 1) {
+                        const speed = (point.speed * 3.6).toFixed(2);
+                        const pointName = index === 0 ? 'Start' : 
+                                        index === this.trackData.length - 1 ? 'End' : 
+                                        `Point ${index + 1}`;
+                        
+                        placemarks += `
+                        <Placemark>
+                            <name>${pointName}</name>
+                            <description>
+                                <![CDATA[
+                                <b>GPS Point ${index + 1}</b><br/>
+                                Time: ${point.timestamp.toLocaleString()}<br/>
+                                Coordinates: ${point.latitude.toFixed(8)}, ${point.longitude.toFixed(8)}<br/>
+                                Altitude: ${point.altitude.toFixed(1)} m<br/>
+                                Accuracy: ${point.accuracy.toFixed(1)} m<br/>
+                                Speed: ${speed} km/h<br/>
+                                Heading: ${point.heading.toFixed(0)}°
+                                ]]>
+                            </description>
+                            <Point>
+                                <coordinates>${point.longitude},${point.latitude},${point.altitude}</coordinates>
+                            </Point>
+                        </Placemark>`;
+                    }
+                });
+                
+                const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+    <Document>
+        <name>${trackName}</name>
+        <description>${description}</description>
+        
+        <!-- Track Line Style -->
+        <Style id="trackLineStyle">
+            <LineStyle>
+                <color>ff0000ff</color>
+                <width>4</width>
+            </LineStyle>
+        </Style>
+        
+        <!-- Start Point Style -->
+        <Style id="startPointStyle">
+            <IconStyle>
+                <color>ff00ff00</color>
+                <scale>1.2</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png</href>
+                </Icon>
+            </IconStyle>
+        </Style>
+        
+        <!-- End Point Style -->
+        <Style id="endPointStyle">
+            <IconStyle>
+                <color>ff0000ff</color>
+                <scale>1.2</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href>
+                </Icon>
+            </IconStyle>
+        </Style>
+        
+        <!-- Regular Point Style -->
+        <Style id="pointStyle">
+            <IconStyle>
+                <color>ffffff00</color>
+                <scale>0.8</scale>
+                <Icon>
+                    <href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href>
+                </Icon>
+            </IconStyle>
+        </Style>
+        
+        <!-- Track Line -->
+        <Placemark>
+            <name>GPS Track</name>
+            <styleUrl>#trackLineStyle</styleUrl>
+            <LineString>
+                <extrude>1</extrude>
+                <tessellate>1</tessellate>
+                <altitudeMode>absolute</altitudeMode>
+                <coordinates>
+                    ${coordinates}
+                </coordinates>
+            </LineString>
+        </Placemark>
+        
+        ${placemarks}
+    </Document>
+</kml>`;
+                
+                return kml;
+            }
+            
+            clearData() {
+                if (this.isTracking) {
+                    if (!confirm('Tracking is active. Stop tracking and clear data?')) {
+                        return;
+                    }
+                    this.stopTracking();
+                }
+                
+                this.trackData = [];
+                this.totalDistance = 0;
+                this.maxSpeed = 0;
+                this.startTime = null;
+                
+                // Reset display
+                document.getElementById('latitude').textContent = '-';
+                document.getElementById('longitude').textContent = '-';
+                document.getElementById('accuracy').textContent = '- m';
+                document.getElementById('altitude').textContent = '- m';
+                document.getElementById('speed').textContent = '- km/h';
+                document.getElementById('heading').textContent = '-°';
+                document.getElementById('pointCount').textContent = '0';
+                document.getElementById('distance').textContent = '0.00 km';
+                document.getElementById('duration').textContent = '00:00:00';
+                document.getElementById('avgSpeed').textContent = '0.00 km/h';
+                document.getElementById('maxSpeed').textContent = '0.00 km/h';
+                document.getElementById('lastUpdate').textContent = 'Never';
+                
+                this.updateButtons();
+            }
+        }
+        
+        // Initialize the GPS tracker
+        let gpsTracker;
+        
+        // Wait for DOM to load
+        document.addEventListener('DOMContentLoaded', function() {
+            gpsTracker = new AdvancedGPSTracker();
+        });
+        
+        // Global functions for button clicks
+        function startTracking() {
+            if (gpsTracker) {
+                gpsTracker.startTracking();
+            }
+        }
+        
+        function stopTracking() {
+            if (gpsTracker) {
+                gpsTracker.stopTracking();
+            }
+        }
+        
+        function exportKML() {
+            if (gpsTracker) {
+                gpsTracker.exportKML();
+            }
+        }
+        
+        function clearData() {
+            if (gpsTracker) {
+                gpsTracker.clearData();
+            }
+        }
+        
+        // Prevent screen from sleeping during tracking (if supported)
+        let wakeLock = null;
+        
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Screen wake lock acquired');
+                } catch (err) {
+                    console.log('Could not acquire screen wake lock:', err);
+                }
+            }
+        }
+        
+        function releaseWakeLock() {
+            if (wakeLock) {
+                wakeLock.release();
+                wakeLock = null;
+                console.log('Screen wake lock released');
+            }
+        }
+        
+        // Handle visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && gpsTracker && gpsTracker.isTracking) {
+                requestWakeLock();
+            } else {
+                releaseWakeLock();
+            }
+        });
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', (event) => {
+            if (gpsTracker && gpsTracker.isTracking) {
+                event.preventDefault();
+                event.returnValue = 'GPS tracking is active. Are you sure you want to leave?';
+                return event.returnValue;
+            }
+        });
+        
+        // Service Worker for offline capabilities (optional)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(registrationError => {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
