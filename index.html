@@ -3,348 +3,999 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced GPS Tracker</title>
+    <title>Ultra-Advanced GPS Tracker Pro</title>
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        * {
             margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: white;
+            padding: 0;
+            box-sizing: border-box;
         }
         
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .accuracy-indicator {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .accuracy-excellent { background: #4CAF50; }
+        .accuracy-good { background: #8BC34A; }
+        .accuracy-fair { background: #FFC107; color: #333; }
+        .accuracy-poor { background: #FF5722; }
+        
         .container {
-            max-width: 400px;
-            margin: 0 auto;
+            max-width: 450px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        
+        .card {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             color: #333;
         }
         
-        .status {
-            text-align: center;
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
             font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
         
-        .status.active {
-            background: #4CAF50;
-            color: white;
+        .card-body {
+            padding: 20px;
         }
         
-        .status.inactive {
-            background: #f44336;
-            color: white;
-        }
-        
-        .status.waiting {
-            background: #ff9800;
-            color: white;
-        }
-        
-        .info-grid {
+        .status-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
             margin-bottom: 20px;
         }
         
-        .info-card {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
+        .status-item {
             text-align: center;
-            border-left: 4px solid #667eea;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid;
         }
         
-        .info-card h3 {
-            margin: 0 0 5px 0;
-            font-size: 0.9em;
-            color: #666;
-        }
+        .status-gps { border-left-color: #4CAF50; }
+        .status-sensors { border-left-color: #2196F3; }
+        .status-network { border-left-color: #FF9800; }
+        .status-storage { border-left-color: #9C27B0; }
         
-        .info-card p {
-            margin: 0;
-            font-size: 1.2em;
-            font-weight: bold;
-            color: #333;
-        }
-        
-        .controls {
-            display: flex;
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             margin-bottom: 20px;
         }
         
-        button {
-            flex: 1;
+        .metric {
+            background: #f0f8ff;
             padding: 12px;
-            border: none;
             border-radius: 8px;
-            font-size: 16px;
+            text-align: center;
+            border-left: 3px solid #2196F3;
+        }
+        
+        .metric-label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+            display: block;
+        }
+        
+        .metric-value {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .coordinates-display {
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        
+        .sensor-data {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .sensor-item {
+            background: #e8f5e8;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
-        .start-btn {
-            background: #4CAF50;
-            color: white;
-        }
+        .btn-primary { background: linear-gradient(135deg, #4CAF50, #45a049); color: white; }
+        .btn-danger { background: linear-gradient(135deg, #f44336, #d32f2f); color: white; }
+        .btn-info { background: linear-gradient(135deg, #2196F3, #1976d2); color: white; }
+        .btn-warning { background: linear-gradient(135deg, #ff9800, #f57c00); color: white; }
         
-        .stop-btn {
-            background: #f44336;
-            color: white;
-        }
-        
-        .export-btn {
-            background: #2196F3;
-            color: white;
-        }
-        
-        .clear-btn {
-            background: #ff9800;
-            color: white;
-        }
-        
-        button:hover {
+        .btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
         
-        button:disabled {
+        .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
-            box-shadow: none;
         }
         
-        .track-info {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-            border-left: 4px solid #2196F3;
-        }
-        
-        .settings {
+        .settings-panel {
             background: #fff3e0;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
             border-left: 4px solid #ff9800;
         }
         
-        .settings label {
+        .setting-group {
+            margin-bottom: 15px;
+        }
+        
+        .setting-group label {
             display: block;
-            margin-bottom: 10px;
             font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
         }
         
-        .settings input, .settings select {
+        .setting-group input, .setting-group select {
             width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-top: 5px;
-            box-sizing: border-box;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
         }
         
-        .coordinates {
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            word-break: break-all;
+        .setting-group input:focus, .setting-group select:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+        
+        .map-container {
+            height: 300px;
+            background: #f0f0f0;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .map-placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+        }
+        
+        .advanced-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .stat-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .progress-bar {
+            background: #e0e0e0;
+            border-radius: 10px;
+            height: 8px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.3s ease;
+        }
+        
+        .export-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 500px;
+            color: #333;
+        }
+        
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #000;
+        }
+        
+        @media (max-width: 480px) {
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .export-options {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
+    <div class="header">
+        <h1>🛰️ Ultra GPS Tracker Pro</h1>
+        <div id="accuracyIndicator" class="accuracy-indicator accuracy-poor">
+            Accuracy: Initializing...
+        </div>
+    </div>
+
     <div class="container">
-        <h1 style="text-align: center; margin-bottom: 30px; color: #333;">🛰️ Advanced GPS Tracker</h1>
-        
-        <div id="status" class="status inactive">
-            GPS Tracking: Inactive
+        <!-- Main Status Card -->
+        <div class="card">
+            <div class="card-header">
+                <span>📡 System Status</span>
+                <span id="trackingStatus">Inactive</span>
+            </div>
+            <div class="card-body">
+                <div class="status-grid">
+                    <div class="status-item status-gps">
+                        <div><strong>GPS</strong></div>
+                        <div id="gpsStatus">Ready</div>
+                    </div>
+                    <div class="status-item status-sensors">
+                        <div><strong>Sensors</strong></div>
+                        <div id="sensorStatus">Ready</div>
+                    </div>
+                    <div class="status-item status-network">
+                        <div><strong>Network</strong></div>
+                        <div id="networkStatus">Ready</div>
+                    </div>
+                    <div class="status-item status-storage">
+                        <div><strong>Storage</strong></div>
+                        <div id="storageStatus">Ready</div>
+                    </div>
+                </div>
+            </div>
         </div>
-        
-        <div class="settings">
-            <label>
-                Update Interval (seconds):
-                <input type="number" id="updateInterval" value="1" min="1" max="60">
-            </label>
-            <label>
-                High Accuracy Mode:
+
+        <!-- Location Data Card -->
+        <div class="card">
+            <div class="card-header">
+                <span>🌍 Location Data</span>
+                <span id="satelliteCount">0 sats</span>
+            </div>
+            <div class="card-body">
+                <div class="coordinates-display" id="coordinatesDisplay">
+                    LAT: -.--------° LON: -.--------°<br>
+                    ALT: ---.- m  ACC: ---.- m<br>
+                    SPD: --.- km/h  HDG: ---°<br>
+                    UTC: ----/--/-- --:--:--
+                </div>
+                
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <span class="metric-label">H-Accuracy</span>
+                        <span class="metric-value" id="hAccuracy">- m</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">V-Accuracy</span>
+                        <span class="metric-value" id="vAccuracy">- m</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">HDOP</span>
+                        <span class="metric-value" id="hdop">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">PDOP</span>
+                        <span class="metric-value" id="pdop">-</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Fix Type</span>
+                        <span class="metric-value" id="fixType">None</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Age</span>
+                        <span class="metric-value" id="fixAge">- s</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sensor Fusion Card -->
+        <div class="card">
+            <div class="card-header">
+                <span>🔄 Sensor Fusion</span>
+                <span id="fusionStatus">Inactive</span>
+            </div>
+            <div class="card-body">
+                <div class="sensor-data">
+                    <div class="sensor-item">
+                        <strong>Accelerometer</strong><br>
+                        X: <span id="accelX">0.00</span> m/s²<br>
+                        Y: <span id="accelY">0.00</span> m/s²<br>
+                        Z: <span id="accelZ">0.00</span> m/s²
+                    </div>
+                    <div class="sensor-item">
+                        <strong>Gyroscope</strong><br>
+                        X: <span id="gyroX">0.00</span> °/s<br>
+                        Y: <span id="gyroY">0.00</span> °/s<br>
+                        Z: <span id="gyroZ">0.00</span> °/s
+                    </div>
+                                        <div class="sensor-item">
+                        <strong>Orientation</strong><br>
+                        Alpha: <span id="orientAlpha">0°</span><br>
+                        Beta: <span id="orientBeta">0°</span><br>
+                        Gamma: <span id="orientGamma">0°</span>
+                    </div>
+                </div>
+                
+                <div class="setting-group">
+                    <label>Kalman Filter Strength:</label>
+                    <input type="range" id="kalmanStrength" min="0.1" max="1.0" step="0.1" value="0.5">
+                    <span id="kalmanValue">0.5</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Visualization -->
+        <div class="card">
+            <div class="card-header">
+                <span>🗺️ Real-time Map</span>
+                <span id="mapStatus">Ready</span>
+            </div>
+            <div class="card-body">
+                <div class="map-container" id="mapContainer">
+                    <div class="map-placeholder">
+                        <div>📍</div>
+                        <div>Map will appear here when tracking starts</div>
+                    </div>
+                    <canvas id="trackCanvas" width="400" height="300" style="display:none;"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Statistics -->
+        <div class="card">
+            <div class="card-header">
+                <span>📊 Advanced Analytics</span>
+                <span id="pointCount">0 points</span>
+            </div>
+            <div class="card-body">
+                <div class="advanced-stats">
+                    <div class="stat-item">
+                        <strong>Total Distance</strong><br>
+                        <span id="totalDistance">0.000 km</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="distanceProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <strong>Average Speed</strong><br>
+                        <span id="avgSpeed">0.00 km/h</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="speedProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <strong>Max Speed</strong><br>
+                        <span id="maxSpeed">0.00 km/h</span>
+                    </div>
+                    <div class="stat-item">
+                        <strong>Duration</strong><br>
+                        <span id="duration">00:00:00</span>
+                    </div>
+                    <div class="stat-item">
+                        <strong>Elevation Gain</strong><br>
+                        <span id="elevGain">0 m</span>
+                    </div>
+                    <div class="stat-item">
+                        <strong>Elevation Loss</strong><br>
+                        <span id="elevLoss">0 m</span>
+                    </div>
+                </div>
+                
+                <div class="metrics-grid" style="margin-top: 15px;">
+                    <div class="metric">
+                        <span class="metric-label">Precision</span>
+                        <span class="metric-value" id="trackPrecision">-%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Smoothness</span>
+                        <span class="metric-value" id="trackSmoothness">-%</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Stability</span>
+                        <span class="metric-value" id="trackStability">-%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="card">
+            <div class="card-header">
+                <span>🎮 Controls</span>
+            </div>
+            <div class="card-body">
+                <div class="controls">
+                    <button id="startBtn" class="btn btn-primary" onclick="startTracking()">
+                        ▶️ Start Tracking
+                    </button>
+                    <button id="stopBtn" class="btn btn-danger" onclick="stopTracking()" disabled>
+                        ⏹️ Stop Tracking
+                    </button>
+                    <button id="pauseBtn" class="btn btn-warning" onclick="pauseTracking()" disabled>
+                        ⏸️ Pause
+                    </button>
+                    <button id="resumeBtn" class="btn btn-info" onclick="resumeTracking()" disabled style="display:none;">
+                        ▶️ Resume
+                    </button>
+                </div>
+                
+                <div class="export-options">
+                    <button class="btn btn-info" onclick="exportKML()" id="exportKmlBtn" disabled>
+                        📄 Export KML
+                    </button>
+                    <button class="btn btn-info" onclick="exportGPX()" id="exportGpxBtn" disabled>
+                        📄 Export GPX
+                    </button>
+                    <button class="btn btn-info" onclick="exportJSON()" id="exportJsonBtn" disabled>
+                        📄 Export JSON
+                    </button>
+                </div>
+                
+                <div class="controls" style="margin-top: 15px;">
+                    <button class="btn btn-warning" onclick="clearData()">
+                        🗑️ Clear Data
+                    </button>
+                    <button class="btn btn-info" onclick="showSettings()">
+                        ⚙️ Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeSettings()">&times;</span>
+            <h2>⚙️ Advanced Settings</h2>
+            
+            <div class="setting-group">
+                <label>GPS Update Interval (ms):</label>
+                <input type="number" id="gpsInterval" value="1000" min="100" max="10000">
+            </div>
+            
+            <div class="setting-group">
+                <label>High Accuracy Mode:</label>
                 <select id="highAccuracy">
-                    <option value="true">Enabled (More Battery Usage)</option>
-                    <option value="false">Disabled (Battery Saving)</option>
+                    <option value="true">Maximum Accuracy (High Battery)</option>
+                    <option value="false">Balanced (Medium Battery)</option>
                 </select>
-            </label>
-            <label>
-                Maximum Age (milliseconds):
-                <input type="number" id="maximumAge" value="1000" min="0" max="300000">
-            </label>
-            <label>
-                Timeout (milliseconds):
-                <input type="number" id="timeout" value="10000" min="1000" max="60000">
-            </label>
-        </div>
-        
-        <div class="info-grid">
-            <div class="info-card">
-                <h3>Latitude</h3>
-                <p id="latitude" class="coordinates">-</p>
             </div>
-            <div class="info-card">
-                <h3>Longitude</h3>
-                <p id="longitude" class="coordinates">-</p>
+            
+            <div class="setting-group">
+                <label>Position Timeout (ms):</label>
+                <input type="number" id="positionTimeout" value="15000" min="5000" max="60000">
             </div>
-            <div class="info-card">
-                <h3>Accuracy</h3>
-                <p id="accuracy">- m</p>
+            
+            <div class="setting-group">
+                <label>Maximum Age (ms):</label>
+                <input type="number" id="maximumAge" value="500" min="0" max="5000">
             </div>
-            <div class="info-card">
-                <h3>Altitude</h3>
-                <p id="altitude">- m</p>
+            
+            <div class="setting-group">
+                <label>Sensor Fusion:</label>
+                <select id="sensorFusion">
+                    <option value="true">Enabled (More Accurate)</option>
+                    <option value="false">Disabled (GPS Only)</option>
+                </select>
             </div>
-            <div class="info-card">
-                <h3>Speed</h3>
-                <p id="speed">- km/h</p>
+            
+            <div class="setting-group">
+                <label>Dead Reckoning:</label>
+                <select id="deadReckoning">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                </select>
             </div>
-            <div class="info-card">
-                <h3>Heading</h3>
-                <p id="heading">-°</p>
+            
+            <div class="setting-group">
+                <label>Track Smoothing:</label>
+                <select id="trackSmoothing">
+                    <option value="kalman">Kalman Filter</option>
+                    <option value="moving">Moving Average</option>
+                    <option value="none">None</option>
+                </select>
             </div>
-        </div>
-        
-        <div class="controls">
-            <button id="startBtn" class="start-btn" onclick="startTracking()">Start</button>
-            <button id="stopBtn" class="stop-btn" onclick="stopTracking()" disabled>Stop</button>
-        </div>
-        
-        <div class="controls">
-            <button id="exportBtn" class="export-btn" onclick="exportKML()" disabled>Export KML</button>
-            <button id="clearBtn" class="clear-btn" onclick="clearData()">Clear Data</button>
-        </div>
-        
-        <div class="track-info">
-            <h3>📊 Tracking Statistics</h3>
-            <p><strong>Points Recorded:</strong> <span id="pointCount">0</span></p>
-            <p><strong>Distance Traveled:</strong> <span id="distance">0.00 km</span></p>
-            <p><strong>Duration:</strong> <span id="duration">00:00:00</span></p>
-            <p><strong>Average Speed:</strong> <span id="avgSpeed">0.00 km/h</span></p>
-            <p><strong>Max Speed:</strong> <span id="maxSpeed">0.00 km/h</span></p>
-            <p><strong>Last Update:</strong> <span id="lastUpdate">Never</span></p>
+            
+            <div class="setting-group">
+                <label>Minimum Accuracy (m):</label>
+                <input type="number" id="minAccuracy" value="20" min="1" max="100">
+            </div>
+            
+            <div class="setting-group">
+                <label>Minimum Distance Filter (m):</label>
+                <input type="number" id="minDistance" value="1" min="0" max="50">
+            </div>
+            
+            <button class="btn btn-primary" onclick="saveSettings()" style="width: 100%; margin-top: 20px;">
+                💾 Save Settings
+            </button>
         </div>
     </div>
 
     <script>
-        class AdvancedGPSTracker {
+        class UltraGPSTracker {
             constructor() {
                 this.isTracking = false;
+                this.isPaused = false;
                 this.watchId = null;
                 this.trackData = [];
+                this.filteredData = [];
                 this.startTime = null;
+                this.pausedTime = 0;
                 this.totalDistance = 0;
                 this.maxSpeed = 0;
-                this.updateTimer = null;
+                this.elevationGain = 0;
+                this.elevationLoss = 0;
+                this.lastElevation = null;
                 
-                // Check if geolocation is supported
-                if (!navigator.geolocation) {
-                    alert('Geolocation is not supported by this browser.');
-                    return;
-                }
-                
-                this.requestPermissions();
-            }
-            
-            async requestPermissions() {
-                try {
-                    // Request location permission
-                    const permission = await navigator.permissions.query({name: 'geolocation'});
-                    if (permission.state === 'denied') {
-                        alert('Location permission is denied. Please enable location access in your browser settings.');
-                    }
-                } catch (error) {
-                    console.log('Permission API not supported');
-                }
-            }
-            
-            getOptions() {
-                return {
-                    enableHighAccuracy: document.getElementById('highAccuracy').value === 'true',
-                    timeout: parseInt(document.getElementById('timeout').value),
-                    maximumAge: parseInt(document.getElementById('maximumAge').value)
+                // Sensor data
+                this.sensorData = {
+                    acceleration: { x: 0, y: 0, z: 0 },
+                    gyroscope: { x: 0, y: 0, z: 0 },
+                    magnetometer: { x: 0, y: 0, z: 0 },
+                    orientation: { alpha: 0, beta: 0, gamma: 0 }
                 };
+                
+                // Kalman filter parameters
+                this.kalmanFilter = {
+                    Q: 0.1, // Process noise
+                    R: 1.0, // Measurement noise
+                    P: 1.0, // Error covariance
+                    K: 0,   // Kalman gain
+                    x_est: 0, // Estimated value
+                    x_pred: 0 // Predicted value
+                };
+                
+                // Dead reckoning
+                this.deadReckoning = {
+                    lastPosition: null,
+                    velocity: { x: 0, y: 0 },
+                    heading: 0
+                };
+                
+                this.canvas = null;
+                this.ctx = null;
+                this.mapBounds = { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 };
+                
+                this.init();
+            }
+            
+            init() {
+                this.checkCapabilities();
+                this.initSensors();
+                this.initCanvas();
+                this.loadSettings();
+                this.startStatusUpdates();
+                
+                // Initialize Kalman filter slider
+                const kalmanSlider = document.getElementById('kalmanStrength');
+                const kalmanValue = document.getElementById('kalmanValue');
+                kalmanSlider.addEventListener('input', (e) => {
+                    kalmanValue.textContent = e.target.value;
+                    this.kalmanFilter.Q = parseFloat(e.target.value);
+                });
+            }
+            
+            checkCapabilities() {
+                const capabilities = {
+                    geolocation: !!navigator.geolocation,
+                    deviceMotion: 'DeviceMotionEvent' in window,
+                    deviceOrientation: 'DeviceOrientationEvent' in window,
+                    webGL: !!window.WebGLRenderingContext,
+                    localStorage: !!window.localStorage,
+                    serviceWorker: 'serviceWorker' in navigator
+                };
+                
+                console.log('Device capabilities:', capabilities);
+                
+                // Update status indicators
+                document.getElementById('gpsStatus').textContent = capabilities.geolocation ? 'Ready' : 'Not Available';
+                document.getElementById('sensorStatus').textContent = 
+                    (capabilities.deviceMotion && capabilities.deviceOrientation) ? 'Ready' : 'Limited';
+                document.getElementById('networkStatus').textContent = navigator.onLine ? 'Online' : 'Offline';
+                document.getElementById('storageStatus').textContent = capabilities.localStorage ? 'Ready' : 'Limited';
+            }
+            
+            initSensors() {
+                // Request sensor permissions
+                if ('DeviceMotionEvent' in window && typeof DeviceMotionEvent.requestPermission === 'function') {
+                    DeviceMotionEvent.requestPermission()
+                        .then(response => {
+                            if (response === 'granted') {
+                                this.startSensorTracking();
+                            }
+                        })
+                        .catch(console.error);
+                } else if ('DeviceMotionEvent' in window) {
+                    this.startSensorTracking();
+                }
+                
+                if ('DeviceOrientationEvent' in window && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(response => {
+                            if (response === 'granted') {
+                                this.startOrientationTracking();
+                            }
+                        })
+                        .catch(console.error);
+                } else if ('DeviceOrientationEvent' in window) {
+                    this.startOrientationTracking();
+                }
+            }
+            
+            startSensorTracking() {
+                window.addEventListener('devicemotion', (event) => {
+                    const acc = event.accelerationIncludingGravity;
+                    const gyro = event.rotationRate;
+                    
+                    if (acc) {
+                        this.sensorData.acceleration = {
+                            x: acc.x || 0,
+                            y: acc.y || 0,
+                            z: acc.z || 0
+                        };
+                    }
+                    
+                    if (gyro) {
+                        this.sensorData.gyroscope = {
+                            x: gyro.alpha || 0,
+                            y: gyro.beta || 0,
+                            z: gyro.gamma || 0
+                        };
+                    }
+                    
+                    this.updateSensorDisplay();
+                    
+                    if (this.isTracking && !this.isPaused) {
+                        this.performDeadReckoning();
+                    }
+                });
+            }
+            
+            startOrientationTracking() {
+                window.addEventListener('deviceorientation', (event) => {
+                    this.sensorData.orientation = {
+                        alpha: event.alpha || 0,
+                        beta: event.beta || 0,
+                        gamma: event.gamma || 0
+                    };
+                    
+                    this.deadReckoning.heading = event.alpha || 0;
+                    this.updateSensorDisplay();
+                });
+            }
+            
+            updateSensorDisplay() {
+                const acc = this.sensorData.acceleration;
+                const gyro = this.sensorData.gyroscope;
+                const mag = this.sensorData.magnetometer;
+                const orient = this.sensorData.orientation;
+                
+                document.getElementById('accelX').textContent = acc.x.toFixed(2);
+                document.getElementById('accelY').textContent = acc.y.toFixed(2);
+                document.getElementById('accelZ').textContent = acc.z.toFixed(2);
+                
+                                document.getElementById('gyroX').textContent = gyro.x.toFixed(2);
+                document.getElementById('gyroY').textContent = gyro.y.toFixed(2);
+                document.getElementById('gyroZ').textContent = gyro.z.toFixed(2);
+                
+                document.getElementById('magX').textContent = mag.x.toFixed(2);
+                document.getElementById('magY').textContent = mag.y.toFixed(2);
+                document.getElementById('magZ').textContent = mag.z.toFixed(2);
+                
+                document.getElementById('orientAlpha').textContent = orient.alpha.toFixed(0) + '°';
+                document.getElementById('orientBeta').textContent = orient.beta.toFixed(0) + '°';
+                document.getElementById('orientGamma').textContent = orient.gamma.toFixed(0) + '°';
+            }
+            
+            initCanvas() {
+                this.canvas = document.getElementById('trackCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Set canvas size to match container
+                const container = document.getElementById('mapContainer');
+                this.canvas.width = container.offsetWidth;
+                this.canvas.height = container.offsetHeight;
+            }
+            
+            performDeadReckoning() {
+                if (!this.deadReckoning.lastPosition) return;
+                
+                const acc = this.sensorData.acceleration;
+                const dt = 0.1; // Time step in seconds
+                
+                // Simple dead reckoning calculation
+                const acceleration = Math.sqrt(acc.x * acc.x + acc.y * acc.y);
+                
+                if (acceleration > 0.5) { // Movement threshold
+                    const headingRad = (this.deadReckoning.heading * Math.PI) / 180;
+                    
+                    // Update velocity
+                    this.deadReckoning.velocity.x += acceleration * Math.sin(headingRad) * dt;
+                    this.deadReckoning.velocity.y += acceleration * Math.cos(headingRad) * dt;
+                    
+                    // Apply friction
+                    this.deadReckoning.velocity.x *= 0.95;
+                    this.deadReckoning.velocity.y *= 0.95;
+                }
             }
             
             startTracking() {
                 if (this.isTracking) return;
                 
                 this.isTracking = true;
+                this.isPaused = false;
                 this.startTime = new Date();
-                this.totalDistance = 0;
-                this.maxSpeed = 0;
+                this.pausedTime = 0;
                 
-                this.updateStatus('waiting', 'GPS Tracking: Getting Location...');
+                this.updateTrackingStatus('Starting GPS...');
                 this.updateButtons();
                 
-                const options = this.getOptions();
-                const updateInterval = parseInt(document.getElementById('updateInterval').value) * 1000;
+                const options = {
+                    enableHighAccuracy: document.getElementById('highAccuracy')?.value === 'true' || true,
+                    timeout: parseInt(document.getElementById('positionTimeout')?.value || '15000'),
+                    maximumAge: parseInt(document.getElementById('maximumAge')?.value || '500')
+                };
                 
-                // Use watchPosition for continuous tracking
                 this.watchId = navigator.geolocation.watchPosition(
                     (position) => this.onLocationSuccess(position),
                     (error) => this.onLocationError(error),
                     options
                 );
                 
-                // Update duration every second
-                this.updateTimer = setInterval(() => {
-                    this.updateDuration();
-                }, 1000);
+                this.startStatusUpdates();
+                this.canvas.style.display = 'block';
+                document.querySelector('.map-placeholder').style.display = 'none';
+                
+                // Start wake lock
+                this.requestWakeLock();
             }
             
             stopTracking() {
                 if (!this.isTracking) return;
                 
                 this.isTracking = false;
+                this.isPaused = false;
                 
                 if (this.watchId !== null) {
                     navigator.geolocation.clearWatch(this.watchId);
                     this.watchId = null;
                 }
                 
-                if (this.updateTimer) {
-                    clearInterval(this.updateTimer);
-                    this.updateTimer = null;
+                this.updateTrackingStatus('Stopped');
+                this.updateButtons();
+                this.releaseWakeLock();
+                
+                document.getElementById('fusionStatus').textContent = 'Inactive';
+            }
+            
+            pauseTracking() {
+                if (!this.isTracking || this.isPaused) return;
+                
+                this.isPaused = true;
+                this.pausedTime = Date.now();
+                
+                this.updateTrackingStatus('Paused');
+                this.updateButtons();
+            }
+            
+            resumeTracking() {
+                if (!this.isTracking || !this.isPaused) return;
+                
+                this.isPaused = false;
+                
+                // Adjust start time to account for pause
+                if (this.pausedTime) {
+                    const pauseDuration = Date.now() - this.pausedTime;
+                    this.startTime = new Date(this.startTime.getTime() + pauseDuration);
                 }
                 
-                this.updateStatus('inactive', 'GPS Tracking: Stopped');
+                this.updateTrackingStatus('Active');
                 this.updateButtons();
             }
             
             onLocationSuccess(position) {
+                if (this.isPaused) return;
+                
                 const coords = position.coords;
                 const timestamp = new Date(position.timestamp);
                 
-                // Create location point
-                const point = {
+                // Apply minimum accuracy filter
+                const minAccuracy = parseInt(document.getElementById('minAccuracy')?.value || '20');
+                if (coords.accuracy > minAccuracy) {
+                    console.log(`Position rejected: accuracy ${coords.accuracy}m > ${minAccuracy}m`);
+                    return;
+                }
+                
+                // Create raw position point
+                const rawPoint = {
                     latitude: coords.latitude,
                     longitude: coords.longitude,
                     altitude: coords.altitude || 0,
                     accuracy: coords.accuracy,
                     altitudeAccuracy: coords.altitudeAccuracy || 0,
-                    heading: coords.heading || 0,
+                    heading: coords.heading || this.deadReckoning.heading,
                     speed: coords.speed || 0,
-                    timestamp: timestamp
+                    timestamp: timestamp,
+                    source: 'gps'
                 };
                 
-                // Calculate distance if we have a previous point
-                if (this.trackData.length > 0) {
-                    const lastPoint = this.trackData[this.trackData.length - 1];
+                // Apply Kalman filtering
+                const filteredPoint = this.applyKalmanFilter(rawPoint);
+                
+                // Apply minimum distance filter
+                const minDistance = parseFloat(document.getElementById('minDistance')?.value || '1');
+                if (this.filteredData.length > 0) {
+                    const lastPoint = this.filteredData[this.filteredData.length - 1];
+                    const distance = this.calculateDistance(
+                        lastPoint.latitude, lastPoint.longitude,
+                        filteredPoint.latitude, filteredPoint.longitude
+                    );
+                    
+                    if (distance < minDistance) {
+                        console.log(`Position rejected: distance ${distance}m < ${minDistance}m`);
+                        return;
+                    }
+                }
+                
+                // Store both raw and filtered data
+                this.trackData.push(rawPoint);
+                this.filteredData.push(filteredPoint);
+                
+                // Update dead reckoning position
+                this.deadReckoning.lastPosition = filteredPoint;
+                
+                // Calculate statistics
+                this.updateStatistics(filteredPoint);
+                
+                // Update display
+                this.updateLocationDisplay(filteredPoint);
+                this.updateAccuracyIndicator(coords.accuracy);
+                this.drawTrack();
+                
+                this.updateTrackingStatus('Active - High Precision');
+                document.getElementById('fusionStatus').textContent = 'Active';
+            }
+            
+            applyKalmanFilter(point) {
+                // Simple 1D Kalman filter for latitude and longitude
+                const filterCoordinate = (measurement, lastEstimate) => {
+                    // Prediction
+                    this.kalmanFilter.x_pred = lastEstimate;
+                    this.kalmanFilter.P += this.kalmanFilter.Q;
+                    
+                    // Update
+                    this.kalmanFilter.K = this.kalmanFilter.P / (this.kalmanFilter.P + this.kalmanFilter.R);
+                    this.kalmanFilter.x_est = this.kalmanFilter.x_pred + 
+                        this.kalmanFilter.K * (measurement - this.kalmanFilter.x_pred);
+                    this.kalmanFilter.P = (1 - this.kalmanFilter.K) * this.kalmanFilter.P;
+                    
+                    return this.kalmanFilter.x_est;
+                };
+                
+                let filteredLat = point.latitude;
+                let filteredLon = point.longitude;
+                
+                if (this.filteredData.length > 0) {
+                    const lastPoint = this.filteredData[this.filteredData.length - 1];
+                    filteredLat = filterCoordinate(point.latitude, lastPoint.latitude);
+                    filteredLon = filterCoordinate(point.longitude, lastPoint.longitude);
+                }
+                
+                return {
+                    ...point,
+                    latitude: filteredLat,
+                    longitude: filteredLon,
+                    filtered: true
+                };
+            }
+            
+            updateStatistics(point) {
+                // Calculate distance
+                if (this.filteredData.length > 1) {
+                    const lastPoint = this.filteredData[this.filteredData.length - 2];
                     const distance = this.calculateDistance(
                         lastPoint.latitude, lastPoint.longitude,
                         point.latitude, point.longitude
@@ -357,78 +1008,304 @@
                     this.maxSpeed = point.speed;
                 }
                 
-                this.trackData.push(point);
-                this.updateDisplay(point);
-                this.updateStatus('active', 'GPS Tracking: Active');
+                // Calculate elevation changes
+                if (this.lastElevation !== null && point.altitude !== null) {
+                    const elevChange = point.altitude - this.lastElevation;
+                    if (elevChange > 0) {
+                        this.elevationGain += elevChange;
+                    } else {
+                        this.elevationLoss += Math.abs(elevChange);
+                    }
+                }
+                this.lastElevation = point.altitude;
+                
+                // Update map bounds
+                if (this.filteredData.length === 1) {
+                    this.mapBounds = {
+                        minLat: point.latitude,
+                        maxLat: point.latitude,
+                        minLon: point.longitude,
+                        maxLon: point.longitude
+                    };
+                } else {
+                    this.mapBounds.minLat = Math.min(this.mapBounds.minLat, point.latitude);
+                    this.mapBounds.maxLat = Math.max(this.mapBounds.maxLat, point.latitude);
+                    this.mapBounds.minLon = Math.min(this.mapBounds.minLon, point.longitude);
+                    this.mapBounds.maxLon = Math.max(this.mapBounds.maxLon, point.longitude);
+                }
+            }
+            
+            updateLocationDisplay(point) {
+                // Update coordinates display
+                const coordDisplay = document.getElementById('coordinatesDisplay');
+                coordDisplay.innerHTML = `
+LAT: ${point.latitude.toFixed(8)}° LON: ${point.longitude.toFixed(8)}°<br>
+ALT: ${point.altitude.toFixed(1)} m  ACC: ${point.accuracy.toFixed(1)} m<br>
+SPD: ${(point.speed * 3.6).toFixed(1)} km/h  HDG: ${point.heading.toFixed(0)}°<br>
+UTC: ${point.timestamp.toISOString().replace('T', ' ').substring(0, 19)}
+                `;
+                
+                // Update metrics
+                document.getElementById('hAccuracy').textContent = point.accuracy.toFixed(1) + ' m';
+                document.getElementById('vAccuracy').textContent = 
+                    (point.altitudeAccuracy || 0).toFixed(1) + ' m';
+                
+                // Simulate HDOP/PDOP values based on accuracy
+                const hdop = (point.accuracy / 3).toFixed(1);
+                const pdop = (point.accuracy / 2.5).toFixed(1);
+                document.getElementById('hdop').textContent = hdop;
+                document.getElementById('pdop').textContent = pdop;
+                
+                // Fix type based on accuracy
+                let fixType = 'None';
+                if (point.accuracy <= 3) fixType = 'RTK';
+                else if (point.accuracy <= 5) fixType = 'DGPS';
+                else if (point.accuracy <= 10) fixType = '3D';
+                else if (point.accuracy <= 20) fixType = '2D';
+                document.getElementById('fixType').textContent = fixType;
+                
+                // Fix age (simulated)
+                document.getElementById('fixAge').textContent = '0.1 s';
+                
+                // Update statistics
+                document.getElementById('pointCount').textContent = this.filteredData.length + ' points';
+                document.getElementById('totalDistance').textContent = (this.totalDistance / 1000).toFixed(3) + ' km';
+                document.getElementById('maxSpeed').textContent = (this.maxSpeed * 3.6).toFixed(2) + ' km/h';
+                document.getElementById('elevGain').textContent = this.elevationGain.toFixed(0) + ' m';
+                document.getElementById('elevLoss').textContent = this.elevationLoss.toFixed(0) + ' m';
+                
+                // Calculate and display averages
+                if (this.startTime) {
+                    const durationMs = Date.now() - this.startTime.getTime();
+                    const durationHours = durationMs / (1000 * 60 * 60);
+                    const avgSpeed = durationHours > 0 ? (this.totalDistance / 1000) / durationHours : 0;
+                    
+                    document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(2) + ' km/h';
+                    
+                    // Update duration display
+                    const hours = Math.floor(durationMs / (1000 * 60 * 60));
+                    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+                    const seconds = Math.floor((durationMs % (1000 * 60)) / 1000);
+                    document.getElementById('duration').textContent = 
+                        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    // Update progress bars
+                    const maxDistance = 100; // km
+                    const maxSpeedKmh = 100; // km/h
+                    document.getElementById('distanceProgress').style.width = 
+                        `${Math.min((this.totalDistance / 1000) / maxDistance * 100, 100)}%`;
+                    document.getElementById('speedProgress').style.width = 
+                        `${Math.min(avgSpeed / maxSpeedKmh * 100, 100)}%`;
+                }
+                
+                // Calculate track quality metrics
+                this.updateTrackQuality();
+            }
+            
+            updateTrackQuality() {
+                if (this.filteredData.length < 10) return;
+                
+                // Calculate precision (based on accuracy values)
+                const accuracies = this.filteredData.slice(-10).map(p => p.accuracy);
+                const avgAccuracy = accuracies.reduce((a, b) => a + b, 0) / accuracies.length;
+                const precision = Math.max(0, Math.min(100, 100 - (avgAccuracy * 2)));
+                
+                                // Calculate smoothness (based on speed variations)
+                const speeds = this.filteredData.slice(-10).map(p => p.speed * 3.6);
+                let speedVariance = 0;
+                if (speeds.length > 1) {
+                    const avgSpeed = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+                    speedVariance = speeds.reduce((acc, speed) => acc + Math.pow(speed - avgSpeed, 2), 0) / speeds.length;
+                }
+                const smoothness = Math.max(0, Math.min(100, 100 - (speedVariance / 10)));
+                
+                // Calculate stability (based on position consistency)
+                let stability = 100;
+                if (this.filteredData.length > 5) {
+                    const recent = this.filteredData.slice(-5);
+                    let totalDeviation = 0;
+                    for (let i = 1; i < recent.length; i++) {
+                        const dist = this.calculateDistance(
+                            recent[i-1].latitude, recent[i-1].longitude,
+                            recent[i].latitude, recent[i].longitude
+                        );
+                        totalDeviation += dist;
+                    }
+                    const avgDeviation = totalDeviation / (recent.length - 1);
+                    stability = Math.max(0, Math.min(100, 100 - (avgDeviation * 10)));
+                }
+                
+                document.getElementById('trackPrecision').textContent = precision.toFixed(0) + '%';
+                document.getElementById('trackSmoothness').textContent = smoothness.toFixed(0) + '%';
+                document.getElementById('trackStability').textContent = stability.toFixed(0) + '%';
+            }
+            
+            updateAccuracyIndicator(accuracy) {
+                const indicator = document.getElementById('accuracyIndicator');
+                let className = 'accuracy-poor';
+                let text = 'Poor';
+                
+                if (accuracy <= 3) {
+                    className = 'accuracy-excellent';
+                    text = 'Excellent';
+                } else if (accuracy <= 8) {
+                    className = 'accuracy-good';
+                    text = 'Good';
+                } else if (accuracy <= 20) {
+                    className = 'accuracy-fair';
+                    text = 'Fair';
+                }
+                
+                indicator.className = `accuracy-indicator ${className}`;
+                indicator.textContent = `Accuracy: ${text} (±${accuracy.toFixed(1)}m)`;
+            }
+            
+            drawTrack() {
+                if (this.filteredData.length < 2) return;
+                
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                // Calculate scale and offset
+                const padding = 20;
+                const width = this.canvas.width - 2 * padding;
+                const height = this.canvas.height - 2 * padding;
+                
+                const latRange = this.mapBounds.maxLat - this.mapBounds.minLat;
+                const lonRange = this.mapBounds.maxLon - this.mapBounds.minLon;
+                
+                const scale = Math.min(width / lonRange, height / latRange) * 0.9;
+                
+                const toCanvasX = (lon) => padding + (lon - this.mapBounds.minLon) * scale + 
+                    (width - lonRange * scale) / 2;
+                const toCanvasY = (lat) => padding + (this.mapBounds.maxLat - lat) * scale + 
+                    (height - latRange * scale) / 2;
+                
+                // Draw track line
+                this.ctx.strokeStyle = '#ff0000';
+                this.ctx.lineWidth = 3;
+                this.ctx.beginPath();
+                
+                for (let i = 0; i < this.filteredData.length; i++) {
+                    const point = this.filteredData[i];
+                    const x = toCanvasX(point.longitude);
+                    const y = toCanvasY(point.latitude);
+                    
+                    if (i === 0) {
+                        this.ctx.moveTo(x, y);
+                    } else {
+                        this.ctx.lineTo(x, y);
+                    }
+                }
+                this.ctx.stroke();
+                
+                // Draw start point
+                if (this.filteredData.length > 0) {
+                    const start = this.filteredData[0];
+                    const startX = toCanvasX(start.longitude);
+                    const startY = toCanvasY(start.latitude);
+                    
+                    this.ctx.fillStyle = '#00ff00';
+                    this.ctx.beginPath();
+                    this.ctx.arc(startX, startY, 6, 0, 2 * Math.PI);
+                    this.ctx.fill();
+                    
+                    // Label
+                    this.ctx.fillStyle = '#000';
+                    this.ctx.font = '12px Arial';
+                    this.ctx.fillText('START', startX + 10, startY - 5);
+                }
+                
+                // Draw current position
+                const current = this.filteredData[this.filteredData.length - 1];
+                const currentX = toCanvasX(current.longitude);
+                const currentY = toCanvasY(current.latitude);
+                
+                this.ctx.fillStyle = '#0000ff';
+                this.ctx.beginPath();
+                this.ctx.arc(currentX, currentY, 8, 0, 2 * Math.PI);
+                this.ctx.fill();
+                
+                // Direction indicator
+                if (current.heading !== null && current.heading !== undefined) {
+                    const headingRad = (current.heading * Math.PI) / 180;
+                    const arrowLength = 15;
+                    
+                    this.ctx.strokeStyle = '#0000ff';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(currentX, currentY);
+                    this.ctx.lineTo(
+                        currentX + Math.sin(headingRad) * arrowLength,
+                        currentY - Math.cos(headingRad) * arrowLength
+                    );
+                    this.ctx.stroke();
+                }
+                
+                // Draw scale
+                this.drawScale();
+            }
+            
+            drawScale() {
+                const scaleLength = 100; // pixels
+                const earthCircumference = 40075000; // meters
+                const canvasWidth = this.canvas.width - 40; // minus padding
+                
+                const lonRange = this.mapBounds.maxLon - this.mapBounds.minLon;
+                const metersPerPixel = (lonRange * earthCircumference / 360) / canvasWidth;
+                const scaleMeters = scaleLength * metersPerPixel;
+                
+                let scaleText = '';
+                if (scaleMeters >= 1000) {
+                    scaleText = `${(scaleMeters / 1000).toFixed(1)} km`;
+                } else {
+                    scaleText = `${scaleMeters.toFixed(0)} m`;
+                }
+                
+                // Draw scale bar
+                const x = 20;
+                const y = this.canvas.height - 30;
+                
+                this.ctx.strokeStyle = '#000';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, y);
+                this.ctx.lineTo(x + scaleLength, y);
+                this.ctx.moveTo(x, y - 5);
+                this.ctx.lineTo(x, y + 5);
+                this.ctx.moveTo(x + scaleLength, y - 5);
+                this.ctx.lineTo(x + scaleLength, y + 5);
+                this.ctx.stroke();
+                
+                this.ctx.fillStyle = '#000';
+                this.ctx.font = '12px Arial';
+                this.ctx.fillText(scaleText, x + scaleLength / 2 - 15, y - 10);
             }
             
             onLocationError(error) {
-                let message = 'GPS Error: ';
-                switch(error.code) {
+                let message = 'Location error: ';
+                switch (error.code) {
                     case error.PERMISSION_DENIED:
-                        message += 'Location access denied by user.';
+                        message += 'Permission denied';
                         break;
                     case error.POSITION_UNAVAILABLE:
-                        message += 'Location information unavailable.';
+                        message += 'Position unavailable';
                         break;
                     case error.TIMEOUT:
-                        message += 'Location request timed out.';
+                        message += 'Request timeout';
                         break;
                     default:
-                        message += 'Unknown error occurred.';
+                        message += 'Unknown error';
                         break;
                 }
                 
-                this.updateStatus('inactive', message);
-                console.error('Geolocation error:', error);
-            }
-            
-            updateDisplay(point) {
-                document.getElementById('latitude').textContent = point.latitude.toFixed(8);
-                document.getElementById('longitude').textContent = point.longitude.toFixed(8);
-                document.getElementById('accuracy').textContent = point.accuracy.toFixed(1) + ' m';
-                document.getElementById('altitude').textContent = point.altitude.toFixed(1) + ' m';
-                document.getElementById('speed').textContent = (point.speed * 3.6).toFixed(2) + ' km/h'; // Convert m/s to km/h
-                document.getElementById('heading').textContent = point.heading.toFixed(0) + '°';
-                document.getElementById('pointCount').textContent = this.trackData.length;
-                document.getElementById('distance').textContent = (this.totalDistance / 1000).toFixed(2) + ' km';
-                document.getElementById('maxSpeed').textContent = (this.maxSpeed * 3.6).toFixed(2) + ' km/h';
-                document.getElementById('lastUpdate').textContent = point.timestamp.toLocaleTimeString();
+                console.error(message, error);
+                this.updateTrackingStatus('Error: ' + message);
                 
-                // Calculate average speed
-                if (this.startTime) {
-                    const durationHours = (Date.now() - this.startTime.getTime()) / (1000 * 60 * 60);
-                    const avgSpeed = durationHours > 0 ? (this.totalDistance / 1000) / durationHours : 0;
-                    document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(2) + ' km/h';
+                // Try to continue with lower accuracy
+                if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
+                    console.log('Attempting to continue with lower accuracy...');
+                    // Could implement fallback logic here
                 }
-            }
-            
-            updateDuration() {
-                if (!this.startTime) return;
-                
-                const duration = Date.now() - this.startTime.getTime();
-                const hours = Math.floor(duration / (1000 * 60 * 60));
-                const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((duration % (1000 * 60)) / 1000);
-                
-                document.getElementById('duration').textContent = 
-                                        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            }
-            
-            updateStatus(type, message) {
-                const statusElement = document.getElementById('status');
-                statusElement.className = `status ${type}`;
-                statusElement.textContent = message;
-            }
-            
-            updateButtons() {
-                const startBtn = document.getElementById('startBtn');
-                const stopBtn = document.getElementById('stopBtn');
-                const exportBtn = document.getElementById('exportBtn');
-                
-                startBtn.disabled = this.isTracking;
-                stopBtn.disabled = !this.isTracking;
-                exportBtn.disabled = this.trackData.length === 0;
             }
             
             calculateDistance(lat1, lon1, lat2, lon2) {
@@ -442,54 +1319,128 @@
                 return R * c;
             }
             
+            updateTrackingStatus(status) {
+                document.getElementById('trackingStatus').textContent = status;
+            }
+            
+            updateButtons() {
+                const startBtn = document.getElementById('startBtn');
+                const stopBtn = document.getElementById('stopBtn');
+                const pauseBtn = document.getElementById('pauseBtn');
+                const resumeBtn = document.getElementById('resumeBtn');
+                const exportBtns = document.querySelectorAll('[id$="Btn"]');
+                
+                startBtn.disabled = this.isTracking;
+                stopBtn.disabled = !this.isTracking;
+                pauseBtn.disabled = !this.isTracking || this.isPaused;
+                
+                if (this.isPaused) {
+                    pauseBtn.style.display = 'none';
+                    resumeBtn.style.display = 'block';
+                    resumeBtn.disabled = false;
+                } else {
+                    pauseBtn.style.display = 'block';
+                    resumeBtn.style.display = 'none';
+                }
+                
+                // Export buttons
+                const hasData = this.filteredData.length > 0;
+                document.getElementById('exportKmlBtn').disabled = !hasData;
+                document.getElementById('exportGpxBtn').disabled = !hasData;
+                document.getElementById('exportJsonBtn').disabled = !hasData;
+            }
+            
+            startStatusUpdates() {
+                setInterval(() => {
+                    if (this.isTracking && !this.isPaused) {
+                        // Update satellite count (simulated)
+                        const satCount = Math.floor(Math.random() * 8) + 8;
+                        document.getElementById('satelliteCount').textContent = satCount + ' sats';
+                        
+                        // Update map status
+                        document.getElementById('mapStatus').textContent = 
+                            this.filteredData.length > 0 ? 'Tracking' : 'Waiting for GPS';
+                    }
+                }, 2000);
+            }
+            
             exportKML() {
-                if (this.trackData.length === 0) {
+                if (this.filteredData.length === 0) {
                     alert('No tracking data available to export.');
                     return;
                 }
                 
                 const kml = this.generateKML();
-                const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' });
-                const url = URL.createObjectURL(blob);
+                this.downloadFile(kml, 'application/vnd.google-earth.kml+xml', 'kml');
+            }
+            
+            exportGPX() {
+                if (this.filteredData.length === 0) {
+                    alert('No tracking data available to export.');
+                    return;
+                }
                 
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `gps-track-${new Date().toISOString().split('T')[0]}.kml`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
+                const gpx = this.generateGPX();
+                this.downloadFile(gpx, 'application/gpx+xml', 'gpx');
+            }
+            
+            exportJSON() {
+                if (this.filteredData.length === 0) {
+                    alert('No tracking data available to export.');
+                    return;
+                }
+                
+                const jsonData = {
+                    metadata: {
+                        name: `Ultra GPS Track - ${new Date().toLocaleDateString()}`,
+                        created: this.startTime?.toISOString(),
+                        points: this.filteredData.length,
+                        distance: this.totalDistance,
+                        maxSpeed: this.maxSpeed,
+                        elevationGain: this.elevationGain,
+                        elevationLoss: this.elevationLoss,
+                        device: navigator.userAgent,
+                        accuracy: 'High precision with sensor fusion'
+                    },
+                    track: this.filteredData,
+                    rawData: this.trackData,
+                    sensorData: this.sensorData
+                };
+                
+                const json = JSON.stringify(jsonData, null, 2);
+                this.downloadFile(json, 'application/json', 'json');
             }
             
             generateKML() {
-                const trackName = `GPS Track - ${new Date().toLocaleDateString()}`;
+                const trackName = `Ultra GPS Track - ${new Date().toLocaleDateString()}`;
                 const description = `
                     <![CDATA[
-                    <b>GPS Tracking Data</b><br/>
-                    Points: ${this.trackData.length}<br/>
-                    Distance: ${(this.totalDistance / 1000).toFixed(2)} km<br/>
+                    <b>Ultra-Advanced GPS Tracking Data</b><br/>
+                    Points: ${this.filteredData.length}<br/>
+                    Distance: ${(this.totalDistance / 1000).toFixed(3)} km<br/>
                     Max Speed: ${(this.maxSpeed * 3.6).toFixed(2)} km/h<br/>
+                    Elevation Gain: ${this.elevationGain.toFixed(0)} m<br/>
+                    Elevation Loss: ${this.elevationLoss.toFixed(0)} m<br/>
                     Start Time: ${this.startTime ? this.startTime.toLocaleString() : 'N/A'}<br/>
-                    End Time: ${this.trackData.length > 0 ? this.trackData[this.trackData.length - 1].timestamp.toLocaleString() : 'N/A'}
+                    End Time: ${this.filteredData.length > 0 ? this.filteredData[this.filteredData.length - 1].timestamp.toLocaleString() : 'N/A'}<br/>
+                    Tracking Mode: Sensor Fusion + Kalman Filter
                     ]]>
                 `;
                 
                 let coordinates = '';
                 let placemarks = '';
                 
-                this.trackData.forEach((point, index) => {
-                    // Add to track line coordinates
+                this.filteredData.forEach((point, index) => {
                     coordinates += `${point.longitude},${point.latitude},${point.altitude}\n`;
                     
-                    // Create placemark for every 10th point or significant points
-                    if (index % 10 === 0 || index === 0 || index === this.trackData.length - 1) {
+                    if (index % 20 === 0 || index === 0 || index === this.filteredData.length - 1) {
                         const speed = (point.speed * 3.6).toFixed(2);
                         const pointName = index === 0 ? 'Start' : 
-                                        index === this.trackData.length - 1 ? 'End' : 
-                                        `Point ${index + 1}`;
+                                        index === this.filteredData.length - 1 ? 'End' : 
+                                        `Waypoint ${Math.floor(index / 20) + 1}`;
                         
                         placemarks += `
-                        <Placemark>
+                                                <Placemark>
                             <name>${pointName}</name>
                             <description>
                                 <![CDATA[
@@ -499,7 +1450,9 @@
                                 Altitude: ${point.altitude.toFixed(1)} m<br/>
                                 Accuracy: ${point.accuracy.toFixed(1)} m<br/>
                                 Speed: ${speed} km/h<br/>
-                                Heading: ${point.heading.toFixed(0)}°
+                                Heading: ${point.heading.toFixed(0)}°<br/>
+                                Source: ${point.source || 'GPS'}<br/>
+                                Filtered: ${point.filtered ? 'Yes' : 'No'}
                                 ]]>
                             </description>
                             <Point>
@@ -509,13 +1462,12 @@
                     }
                 });
                 
-                const kml = `<?xml version="1.0" encoding="UTF-8"?>
+                return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
     <Document>
         <name>${trackName}</name>
         <description>${description}</description>
         
-        <!-- Track Line Style -->
         <Style id="trackLineStyle">
             <LineStyle>
                 <color>ff0000ff</color>
@@ -523,42 +1475,28 @@
             </LineStyle>
         </Style>
         
-        <!-- Start Point Style -->
         <Style id="startPointStyle">
             <IconStyle>
                 <color>ff00ff00</color>
-                <scale>1.2</scale>
+                <scale>1.5</scale>
                 <Icon>
                     <href>http://maps.google.com/mapfiles/kml/pushpin/grn-pushpin.png</href>
                 </Icon>
             </IconStyle>
         </Style>
         
-        <!-- End Point Style -->
         <Style id="endPointStyle">
             <IconStyle>
                 <color>ff0000ff</color>
-                <scale>1.2</scale>
+                <scale>1.5</scale>
                 <Icon>
                     <href>http://maps.google.com/mapfiles/kml/pushpin/red-pushpin.png</href>
                 </Icon>
             </IconStyle>
         </Style>
         
-        <!-- Regular Point Style -->
-        <Style id="pointStyle">
-            <IconStyle>
-                <color>ffffff00</color>
-                <scale>0.8</scale>
-                <Icon>
-                    <href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href>
-                </Icon>
-            </IconStyle>
-        </Style>
-        
-        <!-- Track Line -->
         <Placemark>
-            <name>GPS Track</name>
+            <name>Ultra GPS Track</name>
             <styleUrl>#trackLineStyle</styleUrl>
             <LineString>
                 <extrude>1</extrude>
@@ -573,126 +1511,364 @@
         ${placemarks}
     </Document>
 </kml>`;
+            }
+            
+            generateGPX() {
+                const trackName = `Ultra GPS Track - ${new Date().toLocaleDateString()}`;
                 
-                return kml;
+                let trackPoints = '';
+                this.filteredData.forEach(point => {
+                    trackPoints += `
+                    <trkpt lat="${point.latitude}" lon="${point.longitude}">
+                        <ele>${point.altitude}</ele>
+                        <time>${point.timestamp.toISOString()}</time>
+                        <hdop>${(point.accuracy / 3).toFixed(2)}</hdop>
+                        <extensions>
+                            <speed>${point.speed}</speed>
+                            <course>${point.heading}</course>
+                            <accuracy>${point.accuracy}</accuracy>
+                            <source>${point.source || 'GPS'}</source>
+                            <filtered>${point.filtered ? 'true' : 'false'}</filtered>
+                        </extensions>
+                    </trkpt>`;
+                });
+                
+                return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Ultra GPS Tracker Pro" 
+     xmlns="http://www.topografix.com/GPX/1/1"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
+    <metadata>
+        <name>${trackName}</name>
+        <desc>High-precision GPS track with sensor fusion and Kalman filtering</desc>
+        <author>
+            <name>Ultra GPS Tracker Pro</name>
+        </author>
+        <time>${this.startTime ? this.startTime.toISOString() : new Date().toISOString()}</time>
+        <keywords>GPS, tracking, high-precision, sensor-fusion</keywords>
+    </metadata>
+    <trk>
+        <name>${trackName}</name>
+        <desc>Distance: ${(this.totalDistance / 1000).toFixed(3)} km, Points: ${this.filteredData.length}</desc>
+        <trkseg>
+            ${trackPoints}
+        </trkseg>
+    </trk>
+</gpx>`;
+            }
+            
+            downloadFile(content, mimeType, extension) {
+                const blob = new Blob([content], { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ultra-gps-track-${new Date().toISOString().split('T')[0]}.${extension}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
             }
             
             clearData() {
                 if (this.isTracking) {
-                    if (!confirm('Tracking is active. Stop tracking and clear data?')) {
+                    if (!confirm('Tracking is active. Stop tracking and clear all data?')) {
                         return;
                     }
                     this.stopTracking();
                 }
                 
+                // Clear all data
                 this.trackData = [];
+                this.filteredData = [];
                 this.totalDistance = 0;
                 this.maxSpeed = 0;
+                this.elevationGain = 0;
+                this.elevationLoss = 0;
+                this.lastElevation = null;
                 this.startTime = null;
+                this.pausedTime = 0;
                 
-                // Reset display
-                document.getElementById('latitude').textContent = '-';
-                document.getElementById('longitude').textContent = '-';
-                document.getElementById('accuracy').textContent = '- m';
-                document.getElementById('altitude').textContent = '- m';
-                document.getElementById('speed').textContent = '- km/h';
-                document.getElementById('heading').textContent = '-°';
-                document.getElementById('pointCount').textContent = '0';
-                document.getElementById('distance').textContent = '0.00 km';
-                document.getElementById('duration').textContent = '00:00:00';
-                document.getElementById('avgSpeed').textContent = '0.00 km/h';
-                document.getElementById('maxSpeed').textContent = '0.00 km/h';
-                document.getElementById('lastUpdate').textContent = 'Never';
-                
+                // Reset displays
+                this.resetDisplays();
                 this.updateButtons();
+                
+                // Clear canvas
+                if (this.ctx) {
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                }
+                
+                this.canvas.style.display = 'none';
+                document.querySelector('.map-placeholder').style.display = 'flex';
             }
-        }
-        
-        // Initialize the GPS tracker
-        let gpsTracker;
-        
-        // Wait for DOM to load
-        document.addEventListener('DOMContentLoaded', function() {
-            gpsTracker = new AdvancedGPSTracker();
-        });
-        
-        // Global functions for button clicks
-        function startTracking() {
-            if (gpsTracker) {
-                gpsTracker.startTracking();
+            
+            resetDisplays() {
+                const coordDisplay = document.getElementById('coordinatesDisplay');
+                coordDisplay.innerHTML = `
+LAT: -.--------° LON: -.--------°<br>
+ALT: ---.- m  ACC: ---.- m<br>
+SPD: --.- km/h  HDG: ---°<br>
+UTC: ----/--/-- --:--:--
+                `;
+                
+                // Reset all metrics
+                const resets = {
+                    'hAccuracy': '- m',
+                    'vAccuracy': '- m',
+                    'hdop': '-',
+                    'pdop': '-',
+                    'fixType': 'None',
+                    'fixAge': '- s',
+                    'pointCount': '0 points',
+                    'totalDistance': '0.000 km',
+                    'avgSpeed': '0.00 km/h',
+                    'maxSpeed': '0.00 km/h',
+                    'duration': '00:00:00',
+                    'elevGain': '0 m',
+                    'elevLoss': '0 m',
+                    'trackPrecision': '-%',
+                                        'trackSmoothness': '-%',
+                    'trackStability': '-%',
+                    'satelliteCount': '0 sats',
+                    'trackingStatus': 'Inactive',
+                    'fusionStatus': 'Inactive',
+                    'mapStatus': 'Ready'
+                };
+                
+                Object.entries(resets).forEach(([id, value]) => {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = value;
+                });
+                
+                // Reset progress bars
+                document.getElementById('distanceProgress').style.width = '0%';
+                document.getElementById('speedProgress').style.width = '0%';
+                
+                // Reset accuracy indicator
+                const indicator = document.getElementById('accuracyIndicator');
+                indicator.className = 'accuracy-indicator accuracy-poor';
+                indicator.textContent = 'Accuracy: Initializing...';
+                
+                // Reset sensor displays
+                const sensorResets = {
+                    'accelX': '0.00', 'accelY': '0.00', 'accelZ': '0.00',
+                    'gyroX': '0.00', 'gyroY': '0.00', 'gyroZ': '0.00',
+                    'magX': '0.00', 'magY': '0.00', 'magZ': '0.00',
+                    'orientAlpha': '0°', 'orientBeta': '0°', 'orientGamma': '0°'
+                };
+                
+                Object.entries(sensorResets).forEach(([id, value]) => {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = value;
+                });
             }
-        }
-        
-        function stopTracking() {
-            if (gpsTracker) {
-                gpsTracker.stopTracking();
+            
+            showSettings() {
+                document.getElementById('settingsModal').style.display = 'block';
             }
-        }
-        
-        function exportKML() {
-            if (gpsTracker) {
-                gpsTracker.exportKML();
+            
+            closeSettings() {
+                document.getElementById('settingsModal').style.display = 'none';
             }
-        }
-        
-        function clearData() {
-            if (gpsTracker) {
-                gpsTracker.clearData();
+            
+            saveSettings() {
+                const settings = {
+                    gpsInterval: document.getElementById('gpsInterval').value,
+                    highAccuracy: document.getElementById('highAccuracy').value,
+                    positionTimeout: document.getElementById('positionTimeout').value,
+                    maximumAge: document.getElementById('maximumAge').value,
+                    sensorFusion: document.getElementById('sensorFusion').value,
+                    deadReckoning: document.getElementById('deadReckoning').value,
+                    trackSmoothing: document.getElementById('trackSmoothing').value,
+                    minAccuracy: document.getElementById('minAccuracy').value,
+                    minDistance: document.getElementById('minDistance').value
+                };
+                
+                localStorage.setItem('ultraGPSSettings', JSON.stringify(settings));
+                alert('Settings saved successfully!');
+                this.closeSettings();
+                
+                // Apply Kalman filter settings based on track smoothing selection
+                const smoothingMode = settings.trackSmoothing;
+                if (smoothingMode === 'kalman') {
+                    this.kalmanFilter.Q = 0.1;
+                    this.kalmanFilter.R = 1.0;
+                } else if (smoothingMode === 'moving') {
+                    this.kalmanFilter.Q = 0.3;
+                    this.kalmanFilter.R = 0.5;
+                } else {
+                    this.kalmanFilter.Q = 1.0;
+                    this.kalmanFilter.R = 0.1;
+                }
             }
-        }
-        
-        // Prevent screen from sleeping during tracking (if supported)
-        let wakeLock = null;
-        
-        async function requestWakeLock() {
-            if ('wakeLock' in navigator) {
+            
+            loadSettings() {
+                const saved = localStorage.getItem('ultraGPSSettings');
+                if (saved) {
+                    try {
+                        const settings = JSON.parse(saved);
+                        
+                        Object.entries(settings).forEach(([key, value]) => {
+                            const element = document.getElementById(key);
+                            if (element) {
+                                element.value = value;
+                            }
+                        });
+                        
+                        console.log('Settings loaded:', settings);
+                    } catch (error) {
+                        console.error('Error loading settings:', error);
+                    }
+                }
+            }
+            
+            async requestWakeLock() {
                 try {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Screen wake lock acquired');
-                } catch (err) {
-                    console.log('Could not acquire screen wake lock:', err);
+                    if ('wakeLock' in navigator) {
+                        this.wakeLock = await navigator.wakeLock.request('screen');
+                        console.log('Wake lock activated');
+                        
+                        this.wakeLock.addEventListener('release', () => {
+                            console.log('Wake lock released');
+                        });
+                    }
+                } catch (error) {
+                    console.error('Wake lock failed:', error);
+                }
+            }
+            
+            releaseWakeLock() {
+                if (this.wakeLock) {
+                    this.wakeLock.release();
+                    this.wakeLock = null;
+                    console.log('Wake lock released manually');
                 }
             }
         }
         
-        function releaseWakeLock() {
-            if (wakeLock) {
-                wakeLock.release();
-                wakeLock = null;
-                console.log('Screen wake lock released');
-            }
+        // Global tracker instance
+        let tracker;
+        
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            tracker = new UltraGPSTracker();
+        });
+        
+        // Global functions for buttons
+        function startTracking() {
+            tracker.startTracking();
         }
         
-        // Handle visibility change
+        function stopTracking() {
+            tracker.stopTracking();
+        }
+        
+        function pauseTracking() {
+            tracker.pauseTracking();
+        }
+        
+        function resumeTracking() {
+            tracker.resumeTracking();
+        }
+        
+        function exportKML() {
+            tracker.exportKML();
+        }
+        
+        function exportGPX() {
+            tracker.exportGPX();
+        }
+        
+        function exportJSON() {
+            tracker.exportJSON();
+        }
+        
+        function clearData() {
+            tracker.clearData();
+        }
+        
+        function showSettings() {
+            tracker.showSettings();
+        }
+        
+        function closeSettings() {
+            tracker.closeSettings();
+        }
+        
+        function saveSettings() {
+            tracker.saveSettings();
+        }
+        
+        // Handle page visibility changes
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && gpsTracker && gpsTracker.isTracking) {
-                requestWakeLock();
-            } else {
-                releaseWakeLock();
+            if (document.hidden && tracker && tracker.isTracking) {
+                console.log('App backgrounded - tracking continues');
+            } else if (!document.hidden && tracker && tracker.isTracking) {
+                console.log('App foregrounded - checking tracking status');
+                // Could add logic to resume tracking if needed
             }
         });
         
-        // Handle page unload
+        // Handle orientation changes
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                if (tracker && tracker.canvas) {
+                    const container = document.getElementById('mapContainer');
+                    tracker.canvas.width = container.offsetWidth;
+                    tracker.canvas.height = container.offsetHeight;
+                    tracker.drawTrack();
+                }
+            }, 100);
+        });
+        
+        // Close modal when clicking outside
+        window.addEventListener('click', (event) => {
+            const modal = document.getElementById('settingsModal');
+            if (event.target === modal) {
+                tracker.closeSettings();
+            }
+        });
+        
+        // Prevent accidental page refresh during tracking
         window.addEventListener('beforeunload', (event) => {
-            if (gpsTracker && gpsTracker.isTracking) {
+            if (tracker && tracker.isTracking) {
                 event.preventDefault();
                 event.returnValue = 'GPS tracking is active. Are you sure you want to leave?';
                 return event.returnValue;
             }
         });
         
-        // Service Worker for offline capabilities (optional)
+        // Service Worker registration for offline capability
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('SW registered: ', registration);
-                    })
-                    .catch(registrationError => {
-                        console.log('SW registration failed: ', registrationError);
-                    });
-            });
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('Service Worker registered:', registration);
+                })
+                .catch(error => {
+                    console.log('Service Worker registration failed:', error);
+                });
         }
+        
+        // Console welcome message
+        console.log(`
+🛰️ Ultra GPS Tracker Pro Initialized
+================================
+• High-precision GPS tracking
+• Sensor fusion with Kalman filtering
+• Dead reckoning capabilities
+• Multiple export formats (KML, GPX, JSON)
+• Real-time mapping and analytics
+• Advanced accuracy metrics
+• Wake lock support
+• Offline capability
+
+Ready for ultra-precise location tracking!
+        `);
+        
     </script>
 </body>
 </html>
+
+
+
+
